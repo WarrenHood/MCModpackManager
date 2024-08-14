@@ -186,7 +186,7 @@ impl ModpackMeta {
         let modpack_meta_file_path = directory.clone().join(PathBuf::from(MODPACK_FILENAME));
         if modpack_meta_file_path.exists() {
             return Err(format!(
-                "mcmodpack.toml already exists at {}",
+                "{MODPACK_FILENAME} already exists at {}",
                 modpack_meta_file_path.display()
             )
             .into());

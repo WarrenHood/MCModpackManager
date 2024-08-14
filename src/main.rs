@@ -27,6 +27,9 @@ enum Commands {
         /// The modpack's modloader
         #[arg(long, default_value_t = modpack::ModLoader::Fabric)]
         modloader: modpack::ModLoader,
+        /// Default providers to download the mods from for the modpack (can be overridden on a per-mod basis)
+        #[arg(long)]
+        providers: Vec<ModProvider>,
     },
     /// Create and initialise a new mcmpmgr project in the current directory
     New {
@@ -38,6 +41,9 @@ enum Commands {
         /// The modpack's modloader
         #[arg(long, default_value_t = modpack::ModLoader::Fabric)]
         modloader: modpack::ModLoader,
+        /// Default providers to download the mods from for the modpack (can be overridden on a per-mod basis)
+        #[arg(long)]
+        providers: Vec<ModProvider>,
     },
     /// Add a new mod to the modpack
     Add {
@@ -48,8 +54,8 @@ enum Commands {
         providers: Vec<ModProvider>,
         /// URL to download the mod from
         #[arg(long)]
-        url: Option<String>
-    }
+        url: Option<String>,
+    },
 }
 
 fn main() -> Result<(), Box<dyn Error>> {
@@ -62,6 +68,7 @@ fn main() -> Result<(), Box<dyn Error>> {
                 mc_version,
                 modloader,
                 name,
+                providers,
             } => {
                 let dir = directory.unwrap_or(std::env::current_dir()?);
                 let pack_name = if let Some(name) = name {
@@ -80,14 +87,18 @@ fn main() -> Result<(), Box<dyn Error>> {
                     &pack_name,
                     dir.display()
                 );
-                let mc_modpack_meta: ModpackMeta =
+                let mut mc_modpack_meta: ModpackMeta =
                     ModpackMeta::new(&pack_name, &mc_version, modloader);
+                for provider in providers.into_iter() {
+                    mc_modpack_meta = mc_modpack_meta.provider(provider);
+                }
                 mc_modpack_meta.init_project(&dir)?;
             }
             Commands::New {
                 name,
                 mc_version,
                 modloader,
+                providers,
             } => {
                 let dir = std::env::current_dir()?.join(PathBuf::from(&name));
                 println!(
@@ -96,10 +107,18 @@ fn main() -> Result<(), Box<dyn Error>> {
                     dir.display()
                 );
                 std::fs::create_dir_all(&dir)?;
-                let mc_modpack_meta: ModpackMeta = ModpackMeta::new(&name, &mc_version, modloader);
+                let mut mc_modpack_meta: ModpackMeta =
+                    ModpackMeta::new(&name, &mc_version, modloader);
+                for provider in providers.into_iter() {
+                    mc_modpack_meta = mc_modpack_meta.provider(provider);
+                }
                 mc_modpack_meta.init_project(&dir)?;
             }
-            Commands::Add { name, providers, url } => {
+            Commands::Add {
+                name,
+                providers,
+                url,
+            } => {
                 let mut modpack_meta = ModpackMeta::load_from_current_directory()?;
 
                 let mut mod_meta = ModMeta::new(&name)?;
@@ -111,7 +130,7 @@ fn main() -> Result<(), Box<dyn Error>> {
                 }
                 modpack_meta = modpack_meta.add_mod(mod_meta);
                 modpack_meta.save_current_dir_project()?;
-            },
+            }
         }
     };
 
