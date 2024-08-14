@@ -1,7 +1,8 @@
 mod modpack;
 
 use clap::{Parser, Subcommand};
-use std::path::PathBuf;
+use modpack::{ModLoader, ModMeta, ModProvider, ModpackMeta};
+use std::{error::Error, path::PathBuf};
 
 /// A Minecraft Modpack Manager
 #[derive(Parser)]
@@ -23,7 +24,7 @@ enum Commands {
     },
 }
 
-fn main() -> anyhow::Result<()> {
+fn main() -> Result<(), Box<dyn Error>> {
     let cli = Cli::parse();
 
     if let Some(command) = cli.command {
@@ -33,35 +34,22 @@ fn main() -> anyhow::Result<()> {
                 mc_version,
                 modloader,
             } => {
-                let dir = if let Some(directory) = directory {
-                    directory
-                } else {
-                    std::env::current_dir()
-                        .expect("You should have permissions to access the current directory")
-                };
-
-                let mc_modpack_meta = modpack::ModpackMeta {
-                    mc_version: mc_version,
-                    modloader: modloader,
-                    mods: vec![],
-                };
-
+                let dir = directory.unwrap_or(std::env::current_dir()?);
+                let mc_modpack_meta = ModpackMeta::new(&mc_version, modloader);
                 let modpack_meta_file_path = dir.clone().join(PathBuf::from("mcmodpack.toml"));
-
                 if modpack_meta_file_path.exists() {
-                    anyhow::bail!(
+                    return Err(format!(
                         "mcmodpack.toml already exists at {}",
                         modpack_meta_file_path.display()
-                    );
+                    )
+                    .into());
                 }
 
-                if let Err(e) = std::fs::write(
+                std::fs::write(
                     modpack_meta_file_path,
                     toml::to_string(&mc_modpack_meta)
                         .expect("MC Modpack Meta should be serializable"),
-                ) {
-                    anyhow::bail!("Unable to initialize new MC modpack project at {}:\n{}", dir.display(), e);
-                };
+                )?;
 
                 println!("MC modpack project initialized at {}", dir.display());
             }
