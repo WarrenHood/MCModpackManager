@@ -1,4 +1,4 @@
-use std::{borrow::BorrowMut, error::Error, path::PathBuf};
+use std::{borrow::BorrowMut, collections::HashMap, error::Error, path::PathBuf};
 
 use serde::{Deserialize, Serialize};
 
@@ -29,14 +29,6 @@ impl std::str::FromStr for ModProvider {
 
 #[derive(Debug, Serialize, Deserialize, PartialEq)]
 pub struct ModMeta {
-    mod_name: String,
-    version: String,
-    providers: Option<Vec<ModProvider>>,
-    download_url: Option<String>,
-}
-
-#[derive(Debug, Serialize, Deserialize, PartialEq)]
-struct ModMetaBuilder {
     mod_name: String,
     version: String,
     providers: Option<Vec<ModProvider>>,
@@ -128,7 +120,7 @@ pub struct ModpackMeta {
     pack_name: String,
     mc_version: String,
     modloader: ModLoader,
-    mods: Vec<ModMeta>,
+    mods: HashMap<String, ModMeta>,
     default_providers: Vec<ModProvider>,
 }
 
@@ -167,18 +159,16 @@ impl ModpackMeta {
     }
 
     pub fn add_mod(mut self, mod_meta: ModMeta) -> Self {
-        if !self.mods.contains(&mod_meta) {
-            self.mods = self
-                .mods
-                .into_iter()
-                .filter(|m| m.mod_name != mod_meta.mod_name)
-                .collect();
+        if let Some(old_mod_meta) = self.mods.get(&mod_meta.mod_name) {
+            println!("Updating {} version {}->{}", mod_meta.mod_name, old_mod_meta.version, mod_meta.version);
+        }
+        else {
             println!(
                 "Adding {}@{} to modpack '{}'...",
                 mod_meta.mod_name, mod_meta.version, self.pack_name
             );
-            self.mods.push(mod_meta);
         }
+        self.mods.insert(mod_meta.mod_name.to_string(), mod_meta);
         self
     }
 
