@@ -14,7 +14,7 @@ struct Cli {
 
 #[derive(Subcommand)]
 enum Commands {
-    /// Initialises a new mcmpmgr project in the specified directory (or current dir if not specified)
+    /// Initialise a new mcmpmgr project in the specified directory (or current dir if not specified)
     Init {
         /// The root modpack project directory
         directory: Option<PathBuf>,
@@ -28,7 +28,7 @@ enum Commands {
         #[arg(long, default_value_t = modpack::ModLoader::Fabric)]
         modloader: modpack::ModLoader,
     },
-    /// Creates and initialises a new mcmpmgr project in the current directory
+    /// Create and initialise a new mcmpmgr project in the current directory
     New {
         /// Name of the new modpack project
         name: String,
@@ -39,6 +39,17 @@ enum Commands {
         #[arg(long, default_value_t = modpack::ModLoader::Fabric)]
         modloader: modpack::ModLoader,
     },
+    /// Add a new mod to the modpack
+    Add {
+        /// Name of the mod to add to the project, optionally including a version
+        name: String,
+        /// Providers to download the mods from
+        #[arg(long)]
+        providers: Vec<ModProvider>,
+        /// URL to download the mod from
+        #[arg(long)]
+        url: Option<String>
+    }
 }
 
 fn main() -> Result<(), Box<dyn Error>> {
@@ -88,6 +99,19 @@ fn main() -> Result<(), Box<dyn Error>> {
                 let mc_modpack_meta: ModpackMeta = ModpackMeta::new(&name, &mc_version, modloader);
                 mc_modpack_meta.init_project(&dir)?;
             }
+            Commands::Add { name, providers, url } => {
+                let mut modpack_meta = ModpackMeta::load_from_current_directory()?;
+
+                let mut mod_meta = ModMeta::new(&name)?;
+                if let Some(url) = url {
+                    mod_meta = mod_meta.url(&url);
+                }
+                for provider in providers.into_iter() {
+                    mod_meta = mod_meta.provider(provider);
+                }
+                modpack_meta = modpack_meta.add_mod(mod_meta);
+                modpack_meta.save_current_dir_project()?;
+            },
         }
     };
 
