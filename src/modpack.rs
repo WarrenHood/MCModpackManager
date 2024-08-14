@@ -1,4 +1,4 @@
-use std::borrow::BorrowMut;
+use std::{borrow::BorrowMut, error::Error, path::PathBuf};
 
 use serde::{Deserialize, Serialize};
 
@@ -99,6 +99,7 @@ impl std::str::FromStr for ModLoader {
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct ModpackMeta {
+    pack_name: String,
     mc_version: String,
     modloader: ModLoader,
     mods: Vec<ModMeta>,
@@ -106,8 +107,9 @@ pub struct ModpackMeta {
 }
 
 impl ModpackMeta {
-    pub fn new(mc_version: &str, modloader: ModLoader) -> Self {
+    pub fn new(pack_name: &str, mc_version: &str, modloader: ModLoader) -> Self {
         Self {
+            pack_name: pack_name.into(),
             mc_version: mc_version.into(),
             modloader: modloader,
             ..Default::default()
@@ -127,11 +129,32 @@ impl ModpackMeta {
         }
         self
     }
+
+    pub fn init_project(&self, directory: &PathBuf) -> Result<(), Box<dyn Error>> {
+        let modpack_meta_file_path = directory.clone().join(PathBuf::from("mcmodpack.toml"));
+        if modpack_meta_file_path.exists() {
+            return Err(format!(
+                "mcmodpack.toml already exists at {}",
+                modpack_meta_file_path.display()
+            )
+            .into());
+        }
+
+        std::fs::write(
+            modpack_meta_file_path,
+            toml::to_string(self)
+                .expect("MC Modpack Meta should be serializable"),
+        )?;
+
+        println!("MC modpack project initialized at {}", directory.display());
+        Ok(())
+    }
 }
 
 impl std::default::Default for ModpackMeta {
     fn default() -> Self {
         Self {
+            pack_name: "my_modpack".into(),
             mc_version: "1.20.1".into(),
             modloader: ModLoader::Forge,
             mods: Default::default(),
