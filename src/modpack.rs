@@ -29,7 +29,7 @@ impl std::str::FromStr for ModProvider {
 
 #[derive(Debug, Serialize, Deserialize, PartialEq)]
 pub struct ModMeta {
-    mod_name: String,
+    name: String,
     version: String,
     providers: Option<Vec<ModProvider>>,
     download_url: Option<String>,
@@ -43,13 +43,13 @@ impl ModMeta {
                 return Err(format!("Invalid mod with version constraint: '{}'", &mod_name).into());
             }
             return Ok(Self {
-                mod_name: mod_name_and_version[0].into(),
+                name: mod_name_and_version[0].into(),
                 version: mod_name_and_version[1].into(),
                 ..Default::default()
             });
         }
         Ok(Self {
-            mod_name: mod_name.into(),
+            name: mod_name.into(),
             ..Default::default()
         })
     }
@@ -79,7 +79,7 @@ impl ModMeta {
 impl Default for ModMeta {
     fn default() -> Self {
         Self {
-            mod_name: Default::default(),
+            name: Default::default(),
             version: "*".into(),
             providers: None,
             download_url: Default::default(),
@@ -159,16 +159,16 @@ impl ModpackMeta {
     }
 
     pub fn add_mod(mut self, mod_meta: ModMeta) -> Self {
-        if let Some(old_mod_meta) = self.mods.get(&mod_meta.mod_name) {
-            println!("Updating {} version {}->{}", mod_meta.mod_name, old_mod_meta.version, mod_meta.version);
+        if let Some(old_mod_meta) = self.mods.get(&mod_meta.name) {
+            println!("Updating {} version {}->{}", mod_meta.name, old_mod_meta.version, mod_meta.version);
         }
         else {
             println!(
                 "Adding {}@{} to modpack '{}'...",
-                mod_meta.mod_name, mod_meta.version, self.pack_name
+                mod_meta.name, mod_meta.version, self.pack_name
             );
         }
-        self.mods.insert(mod_meta.mod_name.to_string(), mod_meta);
+        self.mods.insert(mod_meta.name.to_string(), mod_meta);
         self
     }
 
