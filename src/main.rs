@@ -1,7 +1,10 @@
 mod modpack;
+mod mod_meta;
+mod resolver;
 
 use clap::{Parser, Subcommand};
-use modpack::{ModLoader, ModMeta, ModProvider, ModpackMeta};
+use mod_meta::{ModMeta, ModProvider};
+use modpack::ModpackMeta;
 use std::{error::Error, path::PathBuf};
 
 /// A Minecraft Modpack Manager
@@ -128,8 +131,12 @@ fn main() -> Result<(), Box<dyn Error>> {
                 for provider in providers.into_iter() {
                     mod_meta = mod_meta.provider(provider);
                 }
-                modpack_meta = modpack_meta.add_mod(mod_meta);
+                modpack_meta = modpack_meta.add_mod(&mod_meta);
                 modpack_meta.save_current_dir_project()?;
+
+                let mut modpack_lock = resolver::PinnedPackMeta::load_from_current_directory()?;
+                modpack_lock.pin_mod(&mod_meta);
+                modpack_lock.save_current_dir_lock()?;
             }
         }
     };

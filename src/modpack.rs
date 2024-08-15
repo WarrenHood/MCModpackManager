@@ -1,91 +1,11 @@
-use std::{borrow::BorrowMut, collections::HashMap, error::Error, path::PathBuf};
+use std::{collections::HashMap, error::Error, path::PathBuf};
 
+use ferinth::Ferinth;
 use serde::{Deserialize, Serialize};
 
+use crate::mod_meta::{ModMeta, ModProvider};
+
 const MODPACK_FILENAME: &str = "modpack.toml";
-
-#[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
-pub enum ModProvider {
-    /// Get mods from CurseForge
-    CurseForge,
-    /// Get mods from Modrinth
-    Modrinth,
-    /// Get mods from anywhere on the internet. Note: A download url is needed for this
-    Raw,
-}
-
-impl std::str::FromStr for ModProvider {
-    type Err = String;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        match s.to_lowercase().as_str() {
-            "curseforge" => Ok(ModProvider::CurseForge),
-            "modrinth" => Ok(ModProvider::Modrinth),
-            "raw" => Ok(ModProvider::Raw),
-            _ => Err(format!("Invalid mod launcher: {}", s)),
-        }
-    }
-}
-
-#[derive(Debug, Serialize, Deserialize, PartialEq)]
-pub struct ModMeta {
-    name: String,
-    version: String,
-    providers: Option<Vec<ModProvider>>,
-    download_url: Option<String>,
-}
-
-impl ModMeta {
-    pub fn new(mod_name: &str) -> Result<Self, Box<dyn Error>> {
-        if mod_name.contains("@") {
-            let mod_name_and_version: Vec<&str> = mod_name.split("@").collect();
-            if mod_name_and_version.len() != 2 {
-                return Err(format!("Invalid mod with version constraint: '{}'", &mod_name).into());
-            }
-            return Ok(Self {
-                name: mod_name_and_version[0].into(),
-                version: mod_name_and_version[1].into(),
-                ..Default::default()
-            });
-        }
-        Ok(Self {
-            name: mod_name.into(),
-            ..Default::default()
-        })
-    }
-
-    pub fn provider(mut self, provider: ModProvider) -> Self {
-        if let Some(providers) = self.providers.borrow_mut() {
-            if !providers.contains(&provider) {
-                providers.push(provider)
-            }
-        } else {
-            self.providers = Some(vec![provider]);
-        }
-        self
-    }
-
-    pub fn url(mut self, download_url: &str) -> Self {
-        self.download_url = Some(download_url.into());
-        self
-    }
-
-    pub fn version(mut self, version_constraint: &str) -> Self {
-        self.version = version_constraint.into();
-        self
-    }
-}
-
-impl Default for ModMeta {
-    fn default() -> Self {
-        Self {
-            name: Default::default(),
-            version: "*".into(),
-            providers: None,
-            download_url: Default::default(),
-        }
-    }
-}
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum ModLoader {
@@ -134,6 +54,10 @@ impl ModpackMeta {
         }
     }
 
+    pub fn iter_mods(&self) -> std::collections::hash_map::Values<String, ModMeta>  {
+        self.mods.values().into_iter()
+    }
+
     pub fn load_from_directory(directory: &PathBuf) -> Result<Self, Box<dyn Error>> {
         let modpack_meta_file_path = directory.clone().join(PathBuf::from(MODPACK_FILENAME));
         if !modpack_meta_file_path.exists() {
@@ -158,7 +82,7 @@ impl ModpackMeta {
         self
     }
 
-    pub fn add_mod(mut self, mod_meta: ModMeta) -> Self {
+    pub fn add_mod(mut self, mod_meta: &ModMeta) -> Self {
         if let Some(old_mod_meta) = self.mods.get(&mod_meta.name) {
             println!("Updating {} version {}->{}", mod_meta.name, old_mod_meta.version, mod_meta.version);
         }
@@ -168,7 +92,7 @@ impl ModpackMeta {
                 mod_meta.name, mod_meta.version, self.pack_name
             );
         }
-        self.mods.insert(mod_meta.name.to_string(), mod_meta);
+        self.mods.insert(mod_meta.name.to_string(), mod_meta.clone());
         self
     }
 
