@@ -6,7 +6,7 @@ mod resolver;
 use clap::{Parser, Subcommand};
 use mod_meta::{ModMeta, ModProvider};
 use modpack::ModpackMeta;
-use std::{borrow::BorrowMut, error::Error, path::PathBuf};
+use std::{error::Error, path::PathBuf};
 
 /// A Minecraft Modpack Manager
 #[derive(Parser)]

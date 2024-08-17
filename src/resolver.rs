@@ -99,6 +99,11 @@ impl PinnedPackMeta {
                                 .collect());
                         }
                         return Ok(vec![]);
+                    } else if let Err(e) = pinned_mod {
+                        eprintln!(
+                            "Failed to resolve {}@{} with provider {:#?}: {}",
+                            mod_metadata.name, mod_metadata.version, mod_provider, e
+                        );
                     }
                 }
                 crate::mod_meta::ModProvider::Raw => unimplemented!(),

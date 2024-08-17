@@ -64,9 +64,12 @@ impl Modrinth {
         versions.reverse();
 
         let package = if mod_meta.version == "*" {
-            versions
-                .last()
-                .ok_or(format!("Cannot find package {}", mod_meta.name))?
+            versions.last().ok_or(format!(
+                "Cannot find package {} for loader={} and mc version={}",
+                mod_meta.name,
+                pack_meta.modloader.to_string().to_lowercase(),
+                pack_meta.mc_version
+            ))?
         } else {
             let expected_version = semver::Version::parse(&mod_meta.version)?;
             versions
