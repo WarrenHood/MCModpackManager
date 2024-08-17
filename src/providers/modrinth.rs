@@ -64,16 +64,16 @@ struct VersionFiles {
 
 #[derive(Serialize, Deserialize, Debug)]
 struct ModrinthProjectVersion {
-    author_id: String,
-    date_published: String,
-    dependencies: Vec<VersionDeps>,
+    // author_id: String,
+    // date_published: String,
+    dependencies: Option<Vec<VersionDeps>>,
     // downloads: i64,
     files: Vec<VersionFiles>,
     // loaders: Vec<String>,
-    name: String,
-    project_id: String,
+    // name: String,
+    // project_id: String,
     id: String,
-    version_number: semver::Version,
+    version_number: String,
     // version_type: String,
 }
 
@@ -102,10 +102,12 @@ impl Modrinth {
         project_version: Option<&str>,
         pack_meta: &ModpackMeta,
     ) -> Result<ModMeta, Box<dyn Error>> {
-        let project_versions = self.get_project_versions(project_id, pack_meta).await?;
+        let project_versions = self
+            .get_project_versions(project_id, pack_meta, true)
+            .await?;
         let project_slug = self.get_project_slug(project_id).await?;
 
-        for version in project_versions.into_iter() {
+        for version in project_versions.iter() {
             if project_version.is_none() || project_version.unwrap_or("*") == version.id {
                 return Ok(ModMeta::new(&project_slug)?
                     .provider(ModProvider::Modrinth)
@@ -126,20 +128,21 @@ impl Modrinth {
         mod_meta: &ModMeta,
         pack_meta: &ModpackMeta,
     ) -> Result<PinnedMod, Box<dyn Error>> {
-        let versions = self.get_project_versions(&mod_meta.name, pack_meta).await?;
+        let versions = self
+            .get_project_versions(&mod_meta.name, pack_meta, false)
+            .await?;
 
         let package = if mod_meta.version == "*" {
-            versions.last().ok_or(format!(
+            versions.first().ok_or(format!(
                 "Cannot find package {} for loader={} and mc version={}",
                 mod_meta.name,
                 pack_meta.modloader.to_string().to_lowercase(),
                 pack_meta.mc_version
             ))?
         } else {
-            let expected_version = semver::Version::parse(&mod_meta.version)?;
             versions
                 .iter()
-                .filter(|v| v.version_number == expected_version)
+                .filter(|v| v.version_number == mod_meta.version)
                 .nth(0)
                 .ok_or(format!(
                     "Cannot find package {}@{}",
@@ -148,15 +151,13 @@ impl Modrinth {
         };
 
         let mut deps_meta = HashSet::new();
-        for dep in package
-            .dependencies
-            .iter()
-            .filter(|dep| dep.dependency_type == "required")
-        {
-            deps_meta.insert(
-                self.get_mod_meta(&dep.project_id, dep.version_id.as_deref(), pack_meta)
-                    .await?,
-            );
+        if let Some(deps) = &package.dependencies {
+            for dep in deps.iter().filter(|dep| dep.dependency_type == "required") {
+                deps_meta.insert(
+                    self.get_mod_meta(&dep.project_id, dep.version_id.as_deref(), pack_meta)
+                        .await?,
+                );
+            }
         }
 
         Ok(PinnedMod {
@@ -170,7 +171,11 @@ impl Modrinth {
                 })
                 .collect(),
             version: package.version_number.clone(),
-            deps: if package.dependencies.len() > 0 {
+            deps: if package
+                .dependencies
+                .as_ref()
+                .is_some_and(|deps| deps.len() > 0)
+            {
                 Some(deps_meta)
             } else {
                 None
@@ -182,19 +187,26 @@ impl Modrinth {
         &self,
         mod_id: &str,
         pack_meta: &ModpackMeta,
+        ignore_game_version_and_loader: bool, // For deps we might as well let them use anything
     ) -> Result<Vec<ModrinthProjectVersion>, Box<dyn Error>> {
-        let mut project_versions: Vec<ModrinthProjectVersion> = self
-            .client
-            .get(format!(
-                "https://api.modrinth.com/v2/project/{mod_id}/version"
-            ))
-            .query(&[
+        let query_vec = if ignore_game_version_and_loader {
+            &vec![]
+        } else {
+            &vec![
                 (
                     "loaders",
                     format!("[\"{}\"]", pack_meta.modloader.to_string().to_lowercase()),
                 ),
                 ("game_versions", format!("[\"{}\"]", pack_meta.mc_version)),
-            ])
+            ]
+        };
+
+        let mut project_versions: Vec<ModrinthProjectVersion> = self
+            .client
+            .get(format!(
+                "https://api.modrinth.com/v2/project/{mod_id}/version"
+            ))
+            .query(query_vec)
             .send()
             .await?
             .json()

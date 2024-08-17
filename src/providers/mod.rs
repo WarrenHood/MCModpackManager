@@ -16,7 +16,7 @@ pub struct PinnedMod {
     /// Source of the files for the mod
     source: Vec<FileSource>,
     /// Version of mod
-    pub version: semver::Version,
+    pub version: String,
     /// Pinned dependencies of a pinned mod
     pub deps: Option<HashSet<ModMeta>>
 }

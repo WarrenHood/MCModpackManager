@@ -32,11 +32,10 @@ impl PinnedPackMeta {
         &mut self,
         mod_metadata: &ModMeta,
         pack_metadata: &ModpackMeta,
+        ignore_transitive_versions: bool,
     ) -> Result<(), Box<dyn Error>> {
         if let Some(mod_meta) = self.mods.get(&mod_metadata.name) {
-            if mod_metadata.version != "*"
-                && semver::Version::parse(&mod_metadata.version)? == mod_meta.version
-            {
+            if mod_metadata.version != "*" && mod_metadata.version == mod_meta.version {
                 // Skip already pinned mods
                 // TODO: Replace * with the current mod version in the modpack meta so this doesn't get called twice for the first mod created
                 return Ok(());
@@ -44,6 +43,11 @@ impl PinnedPackMeta {
         }
         let mut deps =
             HashSet::from_iter(self.pin_mod(mod_metadata, pack_metadata).await?.into_iter());
+
+        if ignore_transitive_versions {
+            // Ignore transitive dep versions
+            deps = deps.iter().map(|d| d.clone().version("*")).collect();
+        }
 
         let pinned_version = self
             .mods
@@ -183,9 +187,14 @@ impl PinnedPackMeta {
         Ok(())
     }
 
-    pub async fn init(&mut self, modpack_meta: &ModpackMeta) -> Result<(), Box<dyn Error>> {
+    pub async fn init(
+        &mut self,
+        modpack_meta: &ModpackMeta,
+        ignore_transitive_versions: bool,
+    ) -> Result<(), Box<dyn Error>> {
         for mod_meta in modpack_meta.iter_mods() {
-            self.pin_mod_and_deps(mod_meta, modpack_meta).await?;
+            self.pin_mod_and_deps(mod_meta, modpack_meta, ignore_transitive_versions)
+                .await?;
         }
         Ok(())
     }
@@ -210,12 +219,18 @@ impl PinnedPackMeta {
         Ok(())
     }
 
-    pub async fn load_from_directory(directory: &PathBuf) -> Result<Self, Box<dyn Error>> {
+    pub async fn load_from_directory(
+        directory: &PathBuf,
+        ignore_transitive_versions: bool,
+    ) -> Result<Self, Box<dyn Error>> {
         let modpack_lock_file_path = directory.clone().join(PathBuf::from(MODPACK_LOCK_FILENAME));
         if !modpack_lock_file_path.exists() {
             let mut new_modpack_lock = Self::new();
             new_modpack_lock
-                .init(&ModpackMeta::load_from_directory(directory)?)
+                .init(
+                    &ModpackMeta::load_from_directory(directory)?,
+                    ignore_transitive_versions,
+                )
                 .await?;
             return Ok(new_modpack_lock);
         };
@@ -223,7 +238,9 @@ impl PinnedPackMeta {
         Ok(toml::from_str(&modpack_lock_contents)?)
     }
 
-    pub async fn load_from_current_directory() -> Result<Self, Box<dyn Error>> {
-        Self::load_from_directory(&std::env::current_dir()?).await
+    pub async fn load_from_current_directory(
+        ignore_transitive_versions: bool,
+    ) -> Result<Self, Box<dyn Error>> {
+        Self::load_from_directory(&std::env::current_dir()?, ignore_transitive_versions).await
     }
 }
