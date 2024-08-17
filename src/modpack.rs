@@ -37,7 +37,7 @@ pub struct ModpackMeta {
     pack_name: String,
     pub mc_version: String,
     pub modloader: ModLoader,
-    mods: HashMap<String, ModMeta>,
+    pub mods: HashMap<String, ModMeta>,
     pub default_providers: Vec<ModProvider>,
 }
 
@@ -90,6 +90,11 @@ impl ModpackMeta {
         //     );
         // }
         self.mods.insert(mod_meta.name.to_string(), mod_meta.clone());
+        self
+    }
+
+    pub fn remove_mod(mut self, mod_name: &str) -> Self {
+        self.mods.remove(mod_name);
         self
     }
 

@@ -124,6 +124,65 @@ impl PinnedPackMeta {
         .into())
     }
 
+    fn get_dependent_mods(&self, mod_name: &str) -> HashSet<String> {
+        let mut dependent_mods = HashSet::new();
+
+        for (pinned_mod_name, pinned_mod) in self.mods.iter() {
+            if let Some(deps) = &pinned_mod.deps {
+                for dep in deps.iter() {
+                    if dep.name == mod_name {
+                        dependent_mods.insert(pinned_mod_name.clone());
+                    }
+                }
+            }
+        }
+        dependent_mods
+    }
+
+    pub fn remove_mod(
+        &mut self,
+        mod_name: &str,
+        pack_metadata: &ModpackMeta,
+    ) -> Result<(), Box<dyn Error>> {
+        let dependent_mods = self.get_dependent_mods(mod_name);
+
+        if dependent_mods.len() > 0 {
+            return Err(format!(
+                "Cannot remove mod {}.The following mods depend on it:\n{:#?}",
+                mod_name, dependent_mods
+            )
+            .into());
+        }
+        let removed_mod = self.mods.remove(mod_name);
+        if let Some(removed_mod) = removed_mod {
+            println!("Removed mod {}@{}", mod_name, removed_mod.version);
+        }
+        self.prune_mods(pack_metadata)?;
+        Ok(())
+    }
+
+    /// Remove all mods from lockfile that aren't in the pack metadata or depended on by another mod
+    fn prune_mods(&mut self, pack_metadata: &ModpackMeta) -> Result<(), Box<dyn Error>> {
+        let mods_to_remove: HashSet<String> = self
+            .mods
+            .keys()
+            .filter(|mod_name| {
+                !pack_metadata.mods.contains_key(*mod_name)
+                    && self.get_dependent_mods(mod_name).len() == 0
+            })
+            .map(|mod_name| mod_name.into())
+            .collect();
+
+        for mod_name in mods_to_remove {
+            let removed_mod = self.mods.remove(&mod_name);
+            if let Some(removed_mod) = removed_mod {
+                println!("Pruned mod {}@{}", mod_name, removed_mod.version);
+            }
+        }
+
+        Ok(())
+    }
+
     pub async fn init(&mut self, modpack_meta: &ModpackMeta) -> Result<(), Box<dyn Error>> {
         for mod_meta in modpack_meta.iter_mods() {
             self.pin_mod_and_deps(mod_meta, modpack_meta).await?;
