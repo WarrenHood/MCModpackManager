@@ -1,4 +1,4 @@
-use std::path::PathBuf;
+use std::{collections::HashSet, path::PathBuf};
 use serde::{Deserialize, Serialize};
 use crate::mod_meta::ModMeta;
 
@@ -18,5 +18,5 @@ pub struct PinnedMod {
     /// Version of mod
     pub version: semver::Version,
     /// Pinned dependencies of a pinned mod
-    pub deps: Option<Vec<ModMeta>>
+    pub deps: Option<HashSet<ModMeta>>
 }

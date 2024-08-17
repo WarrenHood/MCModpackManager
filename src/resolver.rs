@@ -45,12 +45,19 @@ impl PinnedPackMeta {
         let mut deps =
             HashSet::from_iter(self.pin_mod(mod_metadata, pack_metadata).await?.into_iter());
 
+        let pinned_version = self
+            .mods
+            .get(&mod_metadata.name)
+            .expect("should be in pinned mods")
+            .version
+            .clone();
+
         while !deps.is_empty() {
             let mut next_deps = HashSet::new();
             for dep in deps.iter() {
                 println!(
                     "Adding mod {}@{} (dependency of {}@{})",
-                    dep.name, dep.version, mod_metadata.name, mod_metadata.version
+                    dep.name, dep.version, mod_metadata.name, pinned_version
                 );
                 next_deps.extend(self.pin_mod(dep, &pack_metadata).await?);
             }
@@ -129,7 +136,7 @@ impl PinnedPackMeta {
             path,
             toml::to_string(self).expect("Pinned pack meta should be serializable"),
         )?;
-        println!("Saved modpack.lock to {}", path.display());
+        // println!("Saved modpack.lock to {}", path.display());
         Ok(())
     }
 

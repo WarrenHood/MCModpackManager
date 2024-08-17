@@ -80,15 +80,15 @@ impl ModpackMeta {
     }
 
     pub fn add_mod(mut self, mod_meta: &ModMeta) -> Self {
-        if let Some(old_mod_meta) = self.mods.get(&mod_meta.name) {
-            println!("Updating {} version constraints: {} -> {}", mod_meta.name, old_mod_meta.version, mod_meta.version);
-        }
-        else {
-            println!(
-                "Adding {}@{} to modpack '{}'...",
-                mod_meta.name, mod_meta.version, self.pack_name
-            );
-        }
+        // if let Some(old_mod_meta) = self.mods.get(&mod_meta.name) {
+        //     println!("Updating {} version constraints: {} -> {}", mod_meta.name, old_mod_meta.version, mod_meta.version);
+        // }
+        // else {
+        //     println!(
+        //         "Adding {}@{} to modpack '{}'...",
+        //         mod_meta.name, mod_meta.version, self.pack_name
+        //     );
+        // }
         self.mods.insert(mod_meta.name.to_string(), mod_meta.clone());
         self
     }
@@ -113,7 +113,7 @@ impl ModpackMeta {
             path,
             toml::to_string(self).expect("MC Modpack Meta should be serializable"),
         )?;
-        println!("Saved modpack metadata to {}", path.display());
+        // println!("Saved modpack metadata to {}", path.display());
         Ok(())
     }
 
