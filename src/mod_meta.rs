@@ -2,7 +2,7 @@ use std::{borrow::BorrowMut, error::Error};
 
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
+#[derive(Debug, Serialize, Deserialize, PartialEq, Eq, Hash, Clone)]
 pub enum ModProvider {
     /// Get mods from CurseForge
     CurseForge,
@@ -29,7 +29,7 @@ impl std::str::FromStr for ModProvider {
 pub struct ModMeta {
     pub name: String,
     pub version: String,
-    providers: Option<Vec<ModProvider>>,
+    pub providers: Option<Vec<ModProvider>>,
     download_url: Option<String>,
 }
 

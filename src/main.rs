@@ -1,11 +1,12 @@
-mod modpack;
 mod mod_meta;
+mod modpack;
+mod providers;
 mod resolver;
 
 use clap::{Parser, Subcommand};
 use mod_meta::{ModMeta, ModProvider};
 use modpack::ModpackMeta;
-use std::{error::Error, path::PathBuf};
+use std::{borrow::BorrowMut, error::Error, path::PathBuf};
 
 /// A Minecraft Modpack Manager
 #[derive(Parser)]
@@ -61,7 +62,8 @@ enum Commands {
     },
 }
 
-fn main() -> Result<(), Box<dyn Error>> {
+#[tokio::main(flavor = "multi_thread")]
+async fn main() -> Result<(), Box<dyn Error>> {
     let cli = Cli::parse();
 
     if let Some(command) = cli.command {
@@ -123,6 +125,7 @@ fn main() -> Result<(), Box<dyn Error>> {
                 url,
             } => {
                 let mut modpack_meta = ModpackMeta::load_from_current_directory()?;
+                let old_modpack_meta = modpack_meta.clone();
 
                 let mut mod_meta = ModMeta::new(&name)?;
                 if let Some(url) = url {
@@ -134,9 +137,29 @@ fn main() -> Result<(), Box<dyn Error>> {
                 modpack_meta = modpack_meta.add_mod(&mod_meta);
                 modpack_meta.save_current_dir_project()?;
 
-                let mut modpack_lock = resolver::PinnedPackMeta::load_from_current_directory()?;
-                modpack_lock.pin_mod(&mod_meta);
-                modpack_lock.save_current_dir_lock()?;
+                let revert_modpack_meta = |e| -> ! {
+                    let revert_result = old_modpack_meta.save_current_dir_project();
+                    if let Err(result) = revert_result {
+                        panic!("Failed to revert modpack meta: {}", result);
+                    }
+                    panic!("Reverted modpack meta:\n{}", e);
+                };
+
+                match resolver::PinnedPackMeta::load_from_current_directory().await {
+                    Ok(mut modpack_lock) => {
+                        let pin_result = modpack_lock.pin_mod(&mod_meta, &modpack_meta).await;
+                        if let Err(e) = pin_result {
+                            revert_modpack_meta(e);
+                        }
+
+                        if let Err(e) = modpack_lock.save_current_dir_lock() {
+                            revert_modpack_meta(e);
+                        }
+                    }
+                    Err(e) => {
+                        revert_modpack_meta(e);
+                    }
+                };
             }
         }
     };

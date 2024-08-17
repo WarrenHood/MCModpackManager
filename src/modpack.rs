@@ -1,8 +1,5 @@
 use std::{collections::HashMap, error::Error, path::PathBuf};
-
-use ferinth::Ferinth;
 use serde::{Deserialize, Serialize};
-
 use crate::mod_meta::{ModMeta, ModProvider};
 
 const MODPACK_FILENAME: &str = "modpack.toml";
@@ -35,13 +32,13 @@ impl std::str::FromStr for ModLoader {
     }
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct ModpackMeta {
     pack_name: String,
-    mc_version: String,
-    modloader: ModLoader,
+    pub mc_version: String,
+    pub modloader: ModLoader,
     mods: HashMap<String, ModMeta>,
-    default_providers: Vec<ModProvider>,
+    pub default_providers: Vec<ModProvider>,
 }
 
 impl ModpackMeta {
