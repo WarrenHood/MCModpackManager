@@ -25,7 +25,7 @@ impl std::str::FromStr for ModProvider {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
 pub struct ModMeta {
     pub name: String,
     pub version: String,

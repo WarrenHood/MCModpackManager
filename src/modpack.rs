@@ -81,7 +81,7 @@ impl ModpackMeta {
 
     pub fn add_mod(mut self, mod_meta: &ModMeta) -> Self {
         if let Some(old_mod_meta) = self.mods.get(&mod_meta.name) {
-            println!("Updating {} version {}->{}", mod_meta.name, old_mod_meta.version, mod_meta.version);
+            println!("Updating {} version constraints: {} -> {}", mod_meta.name, old_mod_meta.version, mod_meta.version);
         }
         else {
             println!(

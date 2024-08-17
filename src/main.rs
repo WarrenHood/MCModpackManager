@@ -98,6 +98,8 @@ async fn main() -> Result<(), Box<dyn Error>> {
                     mc_modpack_meta = mc_modpack_meta.provider(provider);
                 }
                 mc_modpack_meta.init_project(&dir)?;
+                let modpack_lock = resolver::PinnedPackMeta::load_from_directory(&dir).await?;
+                modpack_lock.save_to_dir(&dir)?;
             }
             Commands::New {
                 name,
@@ -118,6 +120,9 @@ async fn main() -> Result<(), Box<dyn Error>> {
                     mc_modpack_meta = mc_modpack_meta.provider(provider);
                 }
                 mc_modpack_meta.init_project(&dir)?;
+                
+                let modpack_lock = resolver::PinnedPackMeta::load_from_directory(&dir).await?;
+                modpack_lock.save_to_dir(&dir)?;
             }
             Commands::Add {
                 name,
@@ -147,7 +152,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
                 match resolver::PinnedPackMeta::load_from_current_directory().await {
                     Ok(mut modpack_lock) => {
-                        let pin_result = modpack_lock.pin_mod(&mod_meta, &modpack_meta).await;
+                        let pin_result = modpack_lock.pin_mod_and_deps(&mod_meta, &modpack_meta).await;
                         if let Err(e) = pin_result {
                             revert_modpack_meta(e);
                         }

@@ -58,55 +58,40 @@ impl Modrinth {
         &self,
         mod_meta: &ModMeta,
         pack_meta: &ModpackMeta,
-    ) -> Result<Vec<PinnedMod>, Box<dyn Error>> {
+    ) -> Result<PinnedMod, Box<dyn Error>> {
         let mut versions = self.get_project_versions(&mod_meta.name, pack_meta).await?;
         versions.sort_by_key(|v| v.version_number.clone());
         versions.reverse();
 
-        if mod_meta.version == "*" {
-            return Ok(versions
-                .into_iter()
-                .map(|v| PinnedMod {
-                    source: v
-                        .files
-                        .into_iter()
-                        .map(|f| FileSource::Download {
-                            url: f.url,
-                            sha1: f.hashes.sha1,
-                            sha512: f.hashes.sha512,
-                        })
-                        .collect(),
-                    version: v.version_number,
-                    deps: None, // TODO: Implement automagic transitive dep installation and pinning
+        let package = if mod_meta.version == "*" {
+            versions
+                .last()
+                .ok_or(format!("Cannot find package {}", mod_meta.name))?
+        } else {
+            let expected_version = semver::Version::parse(&mod_meta.version)?;
+            versions
+                .iter()
+                .filter(|v| v.version_number == expected_version)
+                .nth(0)
+                .ok_or(format!(
+                    "Cannot find package {}@{}",
+                    mod_meta.name, mod_meta.version
+                ))?
+        };
+
+        Ok(PinnedMod {
+            source: package
+                .files
+                .iter()
+                .map(|f| FileSource::Download {
+                    url: f.url.clone(),
+                    sha1: f.hashes.sha1.clone(),
+                    sha512: f.hashes.sha512.clone(),
                 })
-                .collect());
-        }
-
-        // TODO: Implement more general version constraints
-        let expected_version = semver::Version::parse(&mod_meta.version)?;
-        for v in versions.into_iter() {
-            if v.version_number == expected_version {
-                return Ok(vec![PinnedMod {
-                    source: v
-                        .files
-                        .into_iter()
-                        .map(|f| FileSource::Download {
-                            url: f.url,
-                            sha1: f.hashes.sha1,
-                            sha512: f.hashes.sha512,
-                        })
-                        .collect(),
-                    version: v.version_number,
-                    deps: None,
-                }]);
-            }
-        }
-
-        Err(format!(
-            "Couldn't find a version for mod '{}' that satisfies the version constraint `{}`",
-            mod_meta.name, mod_meta.version
-        )
-        .into())
+                .collect(),
+            version: package.version_number.clone(),
+            deps: None, // TODO: Get deps
+        })
     }
 
     async fn get_project_versions(
