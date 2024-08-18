@@ -184,8 +184,8 @@ impl Modrinth {
             } else {
                 None
             },
-            server_side: project.server_side != "optional",
-            client_side: project.client_side != "optional"
+            server_side: project.server_side != "unsupported",
+            client_side: project.client_side != "unsupported"
         })
     }
 

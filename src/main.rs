@@ -6,6 +6,7 @@ mod resolver;
 use clap::{Parser, Subcommand};
 use mod_meta::{ModMeta, ModProvider};
 use modpack::ModpackMeta;
+use providers::DownloadSide;
 use std::{error::Error, path::PathBuf};
 
 /// A Minecraft Modpack Manager
@@ -78,6 +79,9 @@ enum Commands {
     Download {
         /// Mods directory
         mods_dir: PathBuf,
+        /// Side to download for
+        #[arg(long, short, default_value_t = DownloadSide::Both)]
+        side: DownloadSide,
     },
 }
 
@@ -183,11 +187,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
                     panic!("Reverted modpack meta:\n{}", e);
                 };
 
-                match resolver::PinnedPackMeta::load_from_current_directory(
-                    !locked,
-                )
-                .await
-                {
+                match resolver::PinnedPackMeta::load_from_current_directory(!locked).await {
                     Ok(mut modpack_lock) => {
                         let remove_result = modpack_lock.remove_mod(&mod_meta.name, &modpack_meta);
                         if let Err(e) = remove_result {
@@ -241,10 +241,9 @@ async fn main() -> Result<(), Box<dyn Error>> {
                     }
                 };
             }
-            Commands::Download { mods_dir } => {
-                let pack_lock =
-                    resolver::PinnedPackMeta::load_from_current_directory(true).await?;
-                pack_lock.download_mods(&mods_dir).await?;
+            Commands::Download { mods_dir, side } => {
+                let pack_lock = resolver::PinnedPackMeta::load_from_current_directory(true).await?;
+                pack_lock.download_mods(&mods_dir, side).await?;
                 println!("Mods updated");
             }
         }

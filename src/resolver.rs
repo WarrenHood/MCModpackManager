@@ -10,7 +10,7 @@ use std::{
 use crate::{
     mod_meta::{ModMeta, ModProvider},
     modpack::ModpackMeta,
-    providers::{modrinth::Modrinth, PinnedMod},
+    providers::{modrinth::Modrinth, DownloadSide, PinnedMod},
 };
 
 const MODPACK_LOCK_FILENAME: &str = "modpack.lock";
@@ -31,7 +31,11 @@ impl PinnedPackMeta {
     }
 
     /// Clears out anything not in the mods list, and then downloads anything in the mods list not present
-    pub async fn download_mods(&self, mods_dir: &PathBuf) -> Result<(), Box<dyn Error>> {
+    pub async fn download_mods(
+        &self,
+        mods_dir: &PathBuf,
+        download_side: DownloadSide,
+    ) -> Result<(), Box<dyn Error>> {
         let files = std::fs::read_dir(mods_dir)?;
         for file in files.into_iter() {
             let file = file?;
@@ -41,7 +45,7 @@ impl PinnedPackMeta {
                     file.file_name()
                 );
                 let filename = file.file_name();
-                if !self.file_is_pinned(&filename) {
+                if !self.file_is_pinned(&filename, download_side) {
                     println!(
                         "Deleting file {:#?} as it is not in the pinned mods",
                         filename
@@ -51,7 +55,11 @@ impl PinnedPackMeta {
             }
         }
 
-        for (_, pinned_mod) in self.mods.iter() {
+        for (_, pinned_mod) in self.mods.iter().filter(|m| {
+            download_side == DownloadSide::Both
+                || download_side == DownloadSide::Client && m.1.client_side
+                || download_side == DownloadSide::Server && m.1.server_side
+        }) {
             for filesource in pinned_mod.source.iter() {
                 match filesource {
                     crate::providers::FileSource::Download {
@@ -97,8 +105,12 @@ impl PinnedPackMeta {
         Ok(())
     }
 
-    pub fn file_is_pinned(&self, file_name: &OsStr) -> bool {
-        for (pinned_mod_name, pinned_mod) in self.mods.iter() {
+    pub fn file_is_pinned(&self, file_name: &OsStr, mod_side: DownloadSide) -> bool {
+        for (_, pinned_mod) in self.mods.iter().filter(|m| {
+            mod_side == DownloadSide::Both
+                || mod_side == DownloadSide::Client && m.1.client_side
+                || mod_side == DownloadSide::Server && m.1.server_side
+        }) {
             for filesource in pinned_mod.source.iter() {
                 match filesource {
                     crate::providers::FileSource::Download {
