@@ -16,7 +16,7 @@ pub struct Modrinth {
 struct ModrinthProject {
     slug: String,
     client_side: String,
-    server_side: String
+    server_side: String,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -90,17 +90,27 @@ impl Modrinth {
                 project_id,
                 pack_meta,
                 false, // TODO: Change this to allow specific versions of mods for the wrong version to be installed
-                loader_override,
-                game_version_override,
+                loader_override.clone(),
+                game_version_override.clone(),
             )
             .await?;
         let project_slug = self.get_project(project_id).await?.slug;
 
         for version in project_versions.iter() {
             if project_version.is_none() || project_version.unwrap_or("*") == version.id {
-                return Ok(ModMeta::new(&project_slug)?
+                let mut mod_meta = ModMeta::new(&project_slug)?
                     .provider(ModProvider::Modrinth)
-                    .version(&version.version_number.to_string()));
+                    .version(&version.version_number.to_string());
+
+                if let Some(loader) = loader_override {
+                    mod_meta.loader = Some(loader.clone());
+                }
+
+                if let Some(mc_version) = game_version_override {
+                    mod_meta = mod_meta.mc_version(&mc_version);
+                }
+
+                return Ok(mod_meta);
             }
         }
         Err(format!(
@@ -171,7 +181,7 @@ impl Modrinth {
                     url: f.url.clone(),
                     sha1: f.hashes.sha1.clone(),
                     sha512: f.hashes.sha512.clone(),
-                    filename: f.filename.clone()
+                    filename: f.filename.clone(),
                 })
                 .collect(),
             version: package.version_number.clone(),
@@ -185,7 +195,7 @@ impl Modrinth {
                 None
             },
             server_side: project.server_side != "unsupported",
-            client_side: project.client_side != "unsupported"
+            client_side: project.client_side != "unsupported",
         })
     }
 
