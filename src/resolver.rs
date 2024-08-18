@@ -261,6 +261,10 @@ impl PinnedPackMeta {
         pack_metadata: &ModpackMeta,
         force: bool,
     ) -> Result<(), Box<dyn Error>> {
+        if !self.mods.contains_key(mod_name) {
+            eprintln!("Skipping removing non-existent mod {} from modpack", mod_name);
+            return Ok(());
+        }
         let dependent_mods = self.get_dependent_mods(mod_name);
 
         if dependent_mods.len() > 0 {
