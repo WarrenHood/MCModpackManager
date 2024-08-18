@@ -215,8 +215,7 @@ impl Modrinth {
             .await?
             .json()
             .await?;
-
-        project_versions.sort_by_key(|v| v.version_number.clone());
+        project_versions.sort_by_key(|v| v.date_published.clone());
         project_versions.reverse();
 
         Ok(project_versions)
