@@ -15,6 +15,8 @@ pub struct Modrinth {
 #[derive(Serialize, Deserialize)]
 struct ModrinthProject {
     slug: String,
+    client_side: String,
+    server_side: String
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -63,8 +65,8 @@ impl Modrinth {
         }
     }
 
-    pub async fn get_project_slug(&self, project_id: &str) -> Result<String, Box<dyn Error>> {
-        let mut project: ModrinthProject = self
+    pub async fn get_project(&self, project_id: &str) -> Result<ModrinthProject, Box<dyn Error>> {
+        let project: ModrinthProject = self
             .client
             .get(format!("https://api.modrinth.com/v2/project/{project_id}"))
             .send()
@@ -72,7 +74,7 @@ impl Modrinth {
             .json()
             .await?;
 
-        Ok(project.slug)
+        Ok(project)
     }
 
     pub async fn get_mod_meta(
@@ -92,7 +94,7 @@ impl Modrinth {
                 game_version_override,
             )
             .await?;
-        let project_slug = self.get_project_slug(project_id).await?;
+        let project_slug = self.get_project(project_id).await?.slug;
 
         for version in project_versions.iter() {
             if project_version.is_none() || project_version.unwrap_or("*") == version.id {
@@ -159,6 +161,8 @@ impl Modrinth {
             }
         }
 
+        let project = self.get_project(&mod_meta.name).await?;
+
         Ok(PinnedMod {
             source: package
                 .files
@@ -180,6 +184,8 @@ impl Modrinth {
             } else {
                 None
             },
+            server_side: project.server_side != "optional",
+            client_side: project.client_side != "optional"
         })
     }
 

@@ -18,5 +18,9 @@ pub struct PinnedMod {
     /// Version of mod
     pub version: String,
     /// Pinned dependencies of a pinned mod
-    pub deps: Option<HashSet<ModMeta>>
+    pub deps: Option<HashSet<ModMeta>>,
+    /// Server side
+    pub server_side: bool,
+    /// Required on client side
+    pub client_side: bool
 }
