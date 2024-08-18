@@ -40,10 +40,6 @@ impl PinnedPackMeta {
         for file in files.into_iter() {
             let file = file?;
             if file.file_type()?.is_file() {
-                println!(
-                    "Checking if file {:#?} exists in pinned mods...",
-                    file.file_name()
-                );
                 let filename = file.file_name();
                 if !self.file_is_pinned(&filename, download_side) {
                     println!(
