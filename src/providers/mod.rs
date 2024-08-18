@@ -6,15 +6,15 @@ pub mod modrinth;
 pub mod raw;
 
 #[derive(Serialize, Deserialize, Clone)]
-enum FileSource {
-    Download { url: String, sha1: String, sha512: String},
-    Local { path: PathBuf, sha1: String, sha512: String },
+pub enum FileSource {
+    Download { url: String, sha1: String, sha512: String, filename: String},
+    Local { path: PathBuf, sha1: String, sha512: String, filename: String },
 }
 
 #[derive(Serialize, Deserialize, Clone)]
 pub struct PinnedMod {
     /// Source of the files for the mod
-    source: Vec<FileSource>,
+    pub source: Vec<FileSource>,
     /// Version of mod
     pub version: String,
     /// Pinned dependencies of a pinned mod

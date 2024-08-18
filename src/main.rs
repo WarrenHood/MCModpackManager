@@ -74,6 +74,11 @@ enum Commands {
         /// Name of the mod to remove from the modpack
         name: String,
     },
+    /// Download the mods in the pack to a specified folder
+    Download {
+        /// Mods directory
+        mods_dir: PathBuf,
+    },
 }
 
 #[tokio::main(flavor = "multi_thread")]
@@ -235,6 +240,12 @@ async fn main() -> Result<(), Box<dyn Error>> {
                         revert_modpack_meta(e);
                     }
                 };
+            }
+            Commands::Download { mods_dir } => {
+                let pack_lock =
+                    resolver::PinnedPackMeta::load_from_current_directory(false).await?;
+                pack_lock.download_mods(&mods_dir).await?;
+                println!("Mods updated");
             }
         }
     };

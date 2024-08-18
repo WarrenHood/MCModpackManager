@@ -2,6 +2,7 @@ use serde::{Deserialize, Serialize};
 use std::{
     collections::{HashMap, HashSet},
     error::Error,
+    ffi::OsStr,
     path::PathBuf,
 };
 
@@ -26,6 +27,86 @@ impl PinnedPackMeta {
             mods: Default::default(),
             modrinth: Modrinth::new(),
         }
+    }
+
+    /// Clears out anything not in the mods list, and then downloads anything in the mods list not present
+    pub async fn download_mods(&self, mods_dir: &PathBuf) -> Result<(), Box<dyn Error>> {
+        let files = std::fs::read_dir(mods_dir)?;
+        for file in files.into_iter() {
+            let file = file?;
+            if file.file_type()?.is_file() {
+                println!("Checking if file {:#?} exists in pinned mods...", file.file_name());
+                let filename = file.file_name();
+                if !self.file_is_pinned(&filename) {
+                    println!(
+                        "Deleting file {:#?} as it is not in the pinned mods",
+                        filename
+                    );
+                    tokio::fs::remove_file(file.path()).await?;
+                }
+            }
+        }
+
+        for (_, pinned_mod) in self.mods.iter() {
+            for filesource in pinned_mod.source.iter() {
+                match filesource {
+                    crate::providers::FileSource::Download {
+                        url,
+                        sha1,
+                        sha512,
+                        filename,
+                    } => {
+                        if mods_dir.join(PathBuf::from(filename)).exists() {
+                            println!("Found existing mod {}", filename);
+                            continue;
+                        }
+                        println!("Downloading {} from {}", filename, url);
+                        let file_contents = reqwest::get(url).await?.bytes().await?;
+                        // TODO: Check hash
+                        tokio::fs::write(mods_dir.join(filename), file_contents).await?;
+                    },
+                    crate::providers::FileSource::Local {
+                        path,
+                        sha1,
+                        sha512,
+                        filename,
+                    } => unimplemented!(),
+                }
+            }
+        }
+
+        Ok(())
+    }
+
+    pub fn file_is_pinned(&self, file_name: &OsStr) -> bool {
+        for (pinned_mod_name, pinned_mod) in self.mods.iter() {
+            for filesource in pinned_mod.source.iter() {
+                match filesource {
+                    crate::providers::FileSource::Download {
+                        url,
+                        sha1,
+                        sha512,
+                        filename,
+                    } => {
+                        if OsStr::new(filename) == file_name {
+                            return true
+                        }
+                    },
+                    crate::providers::FileSource::Local {
+                        path,
+                        sha1,
+                        sha512,
+                        filename,
+                    } => {
+                        if OsStr::new(filename) == file_name {
+                            return true
+                        }
+                    },
+                }
+            }
+        }
+
+        return false
     }
 
     pub async fn pin_mod_and_deps(

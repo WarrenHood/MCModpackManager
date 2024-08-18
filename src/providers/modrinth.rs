@@ -13,27 +13,6 @@ pub struct Modrinth {
 }
 
 #[derive(Serialize, Deserialize)]
-struct DonationUrls1 {
-    id: String,
-    platform: String,
-    url: String,
-}
-#[derive(Serialize, Deserialize)]
-struct Gallery1 {
-    created: String,
-    description: String,
-    featured: bool,
-    ordering: i64,
-    title: String,
-    url: String,
-}
-#[derive(Serialize, Deserialize)]
-struct License1 {
-    id: String,
-    name: String,
-    url: String,
-}
-#[derive(Serialize, Deserialize)]
 struct ModrinthProject {
     slug: String,
 }
@@ -65,7 +44,7 @@ struct VersionFiles {
 #[derive(Serialize, Deserialize, Debug)]
 struct ModrinthProjectVersion {
     // author_id: String,
-    // date_published: String,
+    date_published: String,
     dependencies: Option<Vec<VersionDeps>>,
     // downloads: i64,
     files: Vec<VersionFiles>,
@@ -188,6 +167,7 @@ impl Modrinth {
                     url: f.url.clone(),
                     sha1: f.hashes.sha1.clone(),
                     sha512: f.hashes.sha512.clone(),
+                    filename: f.filename.clone()
                 })
                 .collect(),
             version: package.version_number.clone(),
