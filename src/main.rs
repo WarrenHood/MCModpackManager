@@ -184,6 +184,11 @@ async fn main() -> Result<(), Box<dyn Error>> {
                 .await
                 {
                     Ok(mut modpack_lock) => {
+                        let remove_result = modpack_lock.remove_mod(&mod_meta.name, &modpack_meta);
+                        if let Err(e) = remove_result {
+                            revert_modpack_meta(e);
+                        }
+
                         let pin_result = modpack_lock
                             .pin_mod_and_deps(&mod_meta, &modpack_meta, ignore_transitive_versions)
                             .await;
