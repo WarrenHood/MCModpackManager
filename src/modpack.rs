@@ -1,6 +1,10 @@
-use std::{collections::HashMap, error::Error, path::PathBuf};
-use serde::{Deserialize, Serialize};
 use crate::mod_meta::{ModMeta, ModProvider};
+use serde::{Deserialize, Serialize};
+use std::{
+    collections::{HashMap, HashSet},
+    error::Error,
+    path::PathBuf,
+};
 
 const MODPACK_FILENAME: &str = "modpack.toml";
 
@@ -39,6 +43,7 @@ pub struct ModpackMeta {
     pub modloader: ModLoader,
     pub mods: HashMap<String, ModMeta>,
     pub default_providers: Vec<ModProvider>,
+    pub forbidden_mods: HashSet<String>,
 }
 
 impl ModpackMeta {
@@ -51,7 +56,7 @@ impl ModpackMeta {
         }
     }
 
-    pub fn iter_mods(&self) -> std::collections::hash_map::Values<String, ModMeta>  {
+    pub fn iter_mods(&self) -> std::collections::hash_map::Values<String, ModMeta> {
         self.mods.values().into_iter()
     }
 
@@ -79,18 +84,19 @@ impl ModpackMeta {
         self
     }
 
-    pub fn add_mod(mut self, mod_meta: &ModMeta) -> Self {
-        // if let Some(old_mod_meta) = self.mods.get(&mod_meta.name) {
-        //     println!("Updating {} version constraints: {} -> {}", mod_meta.name, old_mod_meta.version, mod_meta.version);
-        // }
-        // else {
-        //     println!(
-        //         "Adding {}@{} to modpack '{}'...",
-        //         mod_meta.name, mod_meta.version, self.pack_name
-        //     );
-        // }
-        self.mods.insert(mod_meta.name.to_string(), mod_meta.clone());
-        self
+    pub fn add_mod(mut self, mod_meta: &ModMeta) -> Result<Self, Box<dyn Error>> {
+        if self.forbidden_mods.contains(&mod_meta.name) {
+            return Err(format!("Cannot add forbidden mod {} to modpack", mod_meta.name).into());
+        } else {
+            self.mods
+                .insert(mod_meta.name.to_string(), mod_meta.clone());
+        }
+        Ok(self)
+    }
+
+    pub fn forbid_mod(&mut self, mod_name: &str) {
+        self.forbidden_mods.insert(mod_name.into());
+        println!("Mod {} has been forbidden from the modpack", mod_name);
     }
 
     pub fn remove_mod(mut self, mod_name: &str) -> Self {
@@ -137,6 +143,7 @@ impl std::default::Default for ModpackMeta {
             modloader: ModLoader::Forge,
             mods: Default::default(),
             default_providers: vec![ModProvider::Modrinth],
+            forbidden_mods: Default::default(),
         }
     }
 }

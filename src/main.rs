@@ -78,6 +78,11 @@ enum Commands {
         #[arg(long, short, action)]
         force: bool,
     },
+    /// Forbid a mod from the modpack
+    Forbid {
+        /// Name of the mod to remove and forbid from the modpack
+        name: String,
+    },
     /// Download the mods in the pack to a specified folder
     Download {
         /// Mods directory
@@ -184,7 +189,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
                 for provider in providers.into_iter() {
                     mod_meta = mod_meta.provider(provider);
                 }
-                modpack_meta = modpack_meta.add_mod(&mod_meta);
+                modpack_meta = modpack_meta.add_mod(&mod_meta)?;
                 modpack_meta.save_current_dir_project()?;
 
                 let revert_modpack_meta = |e| -> ! {
@@ -237,6 +242,38 @@ async fn main() -> Result<(), Box<dyn Error>> {
                 match resolver::PinnedPackMeta::load_from_current_directory(true).await {
                     Ok(mut modpack_lock) => {
                         let remove_result = modpack_lock.remove_mod(&name, &modpack_meta, force);
+                        if let Err(e) = remove_result {
+                            revert_modpack_meta(e);
+                        }
+
+                        if let Err(e) = modpack_lock.save_current_dir_lock() {
+                            revert_modpack_meta(e);
+                        }
+                    }
+                    Err(e) => {
+                        revert_modpack_meta(e);
+                    }
+                };
+            }
+            Commands::Forbid { name } => {
+                let mut modpack_meta = ModpackMeta::load_from_current_directory()?;
+                let old_modpack_meta = modpack_meta.clone();
+
+                modpack_meta.forbid_mod(&name);
+                modpack_meta = modpack_meta.remove_mod(&name);
+                modpack_meta.save_current_dir_project()?;
+
+                let revert_modpack_meta = |e| -> ! {
+                    let revert_result = old_modpack_meta.save_current_dir_project();
+                    if let Err(result) = revert_result {
+                        panic!("Failed to revert modpack meta: {}", result);
+                    }
+                    panic!("Reverted modpack meta:\n{}", e);
+                };
+
+                match resolver::PinnedPackMeta::load_from_current_directory(true).await {
+                    Ok(mut modpack_lock) => {
+                        let remove_result = modpack_lock.remove_mod(&name, &modpack_meta, true);
                         if let Err(e) = remove_result {
                             revert_modpack_meta(e);
                         }

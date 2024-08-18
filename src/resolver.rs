@@ -191,6 +191,11 @@ impl PinnedPackMeta {
         mod_metadata: &ModMeta,
         pack_metadata: &ModpackMeta,
     ) -> Result<Vec<ModMeta>, Box<dyn Error>> {
+        if pack_metadata.forbidden_mods.contains(&mod_metadata.name) {
+            println!("Skipping adding forbidden mod {}...", mod_metadata.name);
+            return Ok(vec![]);
+        }
+
         let mod_providers = if let Some(mod_providers) = &mod_metadata.providers {
             mod_providers
         } else {
@@ -262,7 +267,10 @@ impl PinnedPackMeta {
         force: bool,
     ) -> Result<(), Box<dyn Error>> {
         if !self.mods.contains_key(mod_name) {
-            eprintln!("Skipping removing non-existent mod {} from modpack", mod_name);
+            eprintln!(
+                "Skipping removing non-existent mod {} from modpack",
+                mod_name
+            );
             return Ok(());
         }
         let dependent_mods = self.get_dependent_mods(mod_name);
