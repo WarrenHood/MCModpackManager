@@ -89,7 +89,7 @@ impl Modrinth {
             .get_project_versions(
                 project_id,
                 pack_meta,
-                true,
+                false, // TODO: Change this to allow specific versions of mods for the wrong version to be installed
                 loader_override,
                 game_version_override,
             )
