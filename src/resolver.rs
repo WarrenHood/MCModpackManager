@@ -259,15 +259,20 @@ impl PinnedPackMeta {
         &mut self,
         mod_name: &str,
         pack_metadata: &ModpackMeta,
+        force: bool,
     ) -> Result<(), Box<dyn Error>> {
         let dependent_mods = self.get_dependent_mods(mod_name);
 
         if dependent_mods.len() > 0 {
-            return Err(format!(
-                "Cannot remove mod {}.The following mods depend on it:\n{:#?}",
-                mod_name, dependent_mods
-            )
-            .into());
+            if force {
+                println!("Forcefully removing mod {} even though it is depended on by the following mods:\n{:#?}", mod_name, dependent_mods);
+            } else {
+                return Err(format!(
+                    "Cannot remove mod {}.The following mods depend on it:\n{:#?}",
+                    mod_name, dependent_mods
+                )
+                .into());
+            }
         }
         let removed_mod = self.mods.remove(mod_name);
         if let Some(removed_mod) = removed_mod {

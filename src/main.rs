@@ -74,6 +74,9 @@ enum Commands {
     Remove {
         /// Name of the mod to remove from the modpack
         name: String,
+        /// Forcefully remove the mod without checking if anything depends on it
+        #[arg(long, short, action)]
+        force: bool,
     },
     /// Download the mods in the pack to a specified folder
     Download {
@@ -87,7 +90,7 @@ enum Commands {
         /// Use exact transitive mod dependency versions
         #[arg(long, short, action)]
         locked: bool,
-    }
+    },
 }
 
 #[tokio::main(flavor = "multi_thread")]
@@ -194,7 +197,8 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
                 match resolver::PinnedPackMeta::load_from_current_directory(!locked).await {
                     Ok(mut modpack_lock) => {
-                        let remove_result = modpack_lock.remove_mod(&mod_meta.name, &modpack_meta);
+                        let remove_result =
+                            modpack_lock.remove_mod(&mod_meta.name, &modpack_meta, true);
                         if let Err(e) = remove_result {
                             revert_modpack_meta(e);
                         }
@@ -215,7 +219,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
                     }
                 };
             }
-            Commands::Remove { name } => {
+            Commands::Remove { name, force } => {
                 let mut modpack_meta = ModpackMeta::load_from_current_directory()?;
                 let old_modpack_meta = modpack_meta.clone();
 
@@ -232,7 +236,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
                 match resolver::PinnedPackMeta::load_from_current_directory(true).await {
                     Ok(mut modpack_lock) => {
-                        let remove_result = modpack_lock.remove_mod(&name, &modpack_meta);
+                        let remove_result = modpack_lock.remove_mod(&name, &modpack_meta, force);
                         if let Err(e) = remove_result {
                             revert_modpack_meta(e);
                         }
