@@ -2,6 +2,8 @@ use std::{borrow::BorrowMut, error::Error};
 
 use serde::{Deserialize, Serialize};
 
+use crate::modpack::ModLoader;
+
 #[derive(Debug, Serialize, Deserialize, PartialEq, Eq, Hash, Clone)]
 pub enum ModProvider {
     /// Get mods from CurseForge
@@ -25,13 +27,24 @@ impl std::str::FromStr for ModProvider {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Serialize, Deserialize, Hash)]
 pub struct ModMeta {
     pub name: String,
     pub version: String,
     pub providers: Option<Vec<ModProvider>>,
+    pub mc_version: Option<String>,
+    pub loader: Option<ModLoader>,
     download_url: Option<String>,
 }
+
+impl PartialEq for ModMeta {
+    fn eq(&self, other: &Self) -> bool {
+        // Only compare mod metadata by name and version
+        self.name == other.name && self.version == other.version
+    }
+}
+
+impl Eq for ModMeta {}
 
 impl ModMeta {
     pub fn new(mod_name: &str) -> Result<Self, Box<dyn Error>> {
@@ -72,6 +85,16 @@ impl ModMeta {
         self.version = version_constraint.into();
         self
     }
+
+    pub fn modloader(mut self, modloader: ModLoader) -> Self {
+        self.loader = Some(modloader);
+        self
+    }
+
+    pub fn mc_version(mut self, mc_version: &str) -> Self {
+        self.mc_version = Some(mc_version.into());
+        self
+    }
 }
 
 impl Default for ModMeta {
@@ -81,6 +104,8 @@ impl Default for ModMeta {
             version: "*".into(),
             providers: None,
             download_url: Default::default(),
+            mc_version: None,
+            loader: None,
         }
     }
 }

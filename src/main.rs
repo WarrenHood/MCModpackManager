@@ -62,6 +62,12 @@ enum Commands {
         /// Whether to ignore exact transitive mod versions
         #[arg(long, short, action)]
         ignore_transitive_versions: bool,
+        /// Minecraft version override
+        #[arg(long, short)]
+        mc_version: Option<String>,
+        /// Modloader override
+        #[arg(long, short)]
+        modloader: Option<modpack::ModLoader>,
     },
     /// Remove a mod from the modpack
     Remove {
@@ -106,7 +112,8 @@ async fn main() -> Result<(), Box<dyn Error>> {
                     mc_modpack_meta = mc_modpack_meta.provider(provider);
                 }
                 mc_modpack_meta.init_project(&dir)?;
-                let modpack_lock = resolver::PinnedPackMeta::load_from_directory(&dir, false).await?;
+                let modpack_lock =
+                    resolver::PinnedPackMeta::load_from_directory(&dir, false).await?;
                 modpack_lock.save_to_dir(&dir)?;
             }
             Commands::New {
@@ -129,7 +136,8 @@ async fn main() -> Result<(), Box<dyn Error>> {
                 }
                 mc_modpack_meta.init_project(&dir)?;
 
-                let modpack_lock = resolver::PinnedPackMeta::load_from_directory(&dir, false).await?;
+                let modpack_lock =
+                    resolver::PinnedPackMeta::load_from_directory(&dir, false).await?;
                 modpack_lock.save_to_dir(&dir)?;
             }
             Commands::Add {
@@ -137,11 +145,22 @@ async fn main() -> Result<(), Box<dyn Error>> {
                 providers,
                 url,
                 ignore_transitive_versions,
+                mc_version,
+                modloader,
             } => {
                 let mut modpack_meta = ModpackMeta::load_from_current_directory()?;
                 let old_modpack_meta = modpack_meta.clone();
 
                 let mut mod_meta = ModMeta::new(&name)?;
+
+                if let Some(modloader) = modloader {
+                    mod_meta = mod_meta.modloader(modloader);
+                }
+
+                if let Some(mc_version) = mc_version {
+                    mod_meta = mod_meta.mc_version(&mc_version);
+                }
+
                 if let Some(url) = url {
                     mod_meta = mod_meta.url(&url);
                 }
@@ -159,7 +178,11 @@ async fn main() -> Result<(), Box<dyn Error>> {
                     panic!("Reverted modpack meta:\n{}", e);
                 };
 
-                match resolver::PinnedPackMeta::load_from_current_directory(ignore_transitive_versions).await {
+                match resolver::PinnedPackMeta::load_from_current_directory(
+                    ignore_transitive_versions,
+                )
+                .await
+                {
                     Ok(mut modpack_lock) => {
                         let pin_result = modpack_lock
                             .pin_mod_and_deps(&mod_meta, &modpack_meta, ignore_transitive_versions)

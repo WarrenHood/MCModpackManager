@@ -4,7 +4,7 @@ use std::{collections::HashSet, error::Error};
 use super::PinnedMod;
 use crate::{
     mod_meta::{ModMeta, ModProvider},
-    modpack::ModpackMeta,
+    modpack::{ModLoader, ModpackMeta},
     providers::FileSource,
 };
 
@@ -101,9 +101,17 @@ impl Modrinth {
         project_id: &str,
         project_version: Option<&str>,
         pack_meta: &ModpackMeta,
+        loader_override: Option<ModLoader>,
+        game_version_override: Option<String>,
     ) -> Result<ModMeta, Box<dyn Error>> {
         let project_versions = self
-            .get_project_versions(project_id, pack_meta, true)
+            .get_project_versions(
+                project_id,
+                pack_meta,
+                true,
+                loader_override,
+                game_version_override,
+            )
             .await?;
         let project_slug = self.get_project_slug(project_id).await?;
 
@@ -129,7 +137,13 @@ impl Modrinth {
         pack_meta: &ModpackMeta,
     ) -> Result<PinnedMod, Box<dyn Error>> {
         let versions = self
-            .get_project_versions(&mod_meta.name, pack_meta, false)
+            .get_project_versions(
+                &mod_meta.name,
+                pack_meta,
+                false,
+                mod_meta.loader.clone(),
+                mod_meta.mc_version.clone(),
+            )
             .await?;
 
         let package = if mod_meta.version == "*" {
@@ -154,8 +168,14 @@ impl Modrinth {
         if let Some(deps) = &package.dependencies {
             for dep in deps.iter().filter(|dep| dep.dependency_type == "required") {
                 deps_meta.insert(
-                    self.get_mod_meta(&dep.project_id, dep.version_id.as_deref(), pack_meta)
-                        .await?,
+                    self.get_mod_meta(
+                        &dep.project_id,
+                        dep.version_id.as_deref(),
+                        pack_meta,
+                        mod_meta.loader.clone(),
+                        mod_meta.mc_version.clone(),
+                    )
+                    .await?,
                 );
             }
         }
@@ -188,16 +208,20 @@ impl Modrinth {
         mod_id: &str,
         pack_meta: &ModpackMeta,
         ignore_game_version_and_loader: bool, // For deps we might as well let them use anything
+        loader_override: Option<ModLoader>,
+        game_version_override: Option<String>,
     ) -> Result<Vec<ModrinthProjectVersion>, Box<dyn Error>> {
+        let loader = loader_override
+            .unwrap_or(pack_meta.modloader.clone())
+            .to_string()
+            .to_lowercase();
+        let game_version = game_version_override.unwrap_or(pack_meta.mc_version.clone());
         let query_vec = if ignore_game_version_and_loader {
             &vec![]
         } else {
             &vec![
-                (
-                    "loaders",
-                    format!("[\"{}\"]", pack_meta.modloader.to_string().to_lowercase()),
-                ),
-                ("game_versions", format!("[\"{}\"]", pack_meta.mc_version)),
+                ("loaders", format!("[\"{}\"]", loader)),
+                ("game_versions", format!("[\"{}\"]", game_version)),
             ]
         };
 

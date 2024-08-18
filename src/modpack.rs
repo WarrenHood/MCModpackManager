@@ -4,7 +4,7 @@ use crate::mod_meta::{ModMeta, ModProvider};
 
 const MODPACK_FILENAME: &str = "modpack.toml";
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
 pub enum ModLoader {
     Forge,
     Fabric,
