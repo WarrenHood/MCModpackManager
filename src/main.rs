@@ -83,6 +83,11 @@ enum Commands {
         #[arg(long, short, default_value_t = DownloadSide::Both)]
         side: DownloadSide,
     },
+    Update {
+        /// Use exact transitive mod dependency versions
+        #[arg(long, short, action)]
+        locked: bool,
+    }
 }
 
 #[tokio::main(flavor = "multi_thread")]
@@ -245,6 +250,12 @@ async fn main() -> Result<(), Box<dyn Error>> {
                 let pack_lock = resolver::PinnedPackMeta::load_from_current_directory(true).await?;
                 pack_lock.download_mods(&mods_dir, side).await?;
                 println!("Mods updated");
+            }
+            Commands::Update { locked } => {
+                let mut pack_lock = resolver::PinnedPackMeta::new();
+                let modpack_meta = ModpackMeta::load_from_current_directory()?;
+                pack_lock.init(&modpack_meta, !locked).await?;
+                pack_lock.save_current_dir_lock()?;
             }
         }
     };
