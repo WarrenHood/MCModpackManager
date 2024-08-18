@@ -1,4 +1,5 @@
 use serde::{Deserialize, Serialize};
+use sha2::{Digest, Sha512};
 use std::{
     collections::{HashMap, HashSet},
     error::Error,
@@ -35,7 +36,10 @@ impl PinnedPackMeta {
         for file in files.into_iter() {
             let file = file?;
             if file.file_type()?.is_file() {
-                println!("Checking if file {:#?} exists in pinned mods...", file.file_name());
+                println!(
+                    "Checking if file {:#?} exists in pinned mods...",
+                    file.file_name()
+                );
                 let filename = file.file_name();
                 if !self.file_is_pinned(&filename) {
                     println!(
@@ -62,9 +66,24 @@ impl PinnedPackMeta {
                         }
                         println!("Downloading {} from {}", filename, url);
                         let file_contents = reqwest::get(url).await?.bytes().await?;
-                        // TODO: Check hash
+                        let mut hasher = Sha512::new();
+                        hasher.update(&file_contents);
+                        let sha512_hash = format!("{:X}", hasher.finalize()).to_ascii_lowercase();
+                        let sha512 = sha512.to_ascii_lowercase();
+                        if sha512_hash != *sha512 {
+                            eprintln!(
+                                "Sha512 hash mismatch for file {}\nExpected:\n{}\nGot:\n{}",
+                                filename, sha512, sha512_hash
+                            );
+                            return Err(format!(
+                                "Sha512 hash mismatch for file {}\nExpected:\n{}\nGot:\n{}",
+                                filename, sha512, sha512_hash
+                            )
+                            .into());
+                        }
+
                         tokio::fs::write(mods_dir.join(filename), file_contents).await?;
-                    },
+                    }
                     crate::providers::FileSource::Local {
                         path,
                         sha1,
@@ -89,9 +108,9 @@ impl PinnedPackMeta {
                         filename,
                     } => {
                         if OsStr::new(filename) == file_name {
-                            return true
+                            return true;
                         }
-                    },
+                    }
                     crate::providers::FileSource::Local {
                         path,
                         sha1,
@@ -99,14 +118,14 @@ impl PinnedPackMeta {
                         filename,
                     } => {
                         if OsStr::new(filename) == file_name {
-                            return true
+                            return true;
                         }
-                    },
+                    }
                 }
             }
         }
 
-        return false
+        return false;
     }
 
     pub async fn pin_mod_and_deps(
