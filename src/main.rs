@@ -118,7 +118,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
                 }
                 mc_modpack_meta.init_project(&dir)?;
                 let modpack_lock =
-                    resolver::PinnedPackMeta::load_from_directory(&dir, false).await?;
+                    resolver::PinnedPackMeta::load_from_directory(&dir, true).await?;
                 modpack_lock.save_to_dir(&dir)?;
             }
             Commands::New {
@@ -142,7 +142,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
                 mc_modpack_meta.init_project(&dir)?;
 
                 let modpack_lock =
-                    resolver::PinnedPackMeta::load_from_directory(&dir, false).await?;
+                    resolver::PinnedPackMeta::load_from_directory(&dir, true).await?;
                 modpack_lock.save_to_dir(&dir)?;
             }
             Commands::Add {
@@ -225,7 +225,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
                     panic!("Reverted modpack meta:\n{}", e);
                 };
 
-                match resolver::PinnedPackMeta::load_from_current_directory(false).await {
+                match resolver::PinnedPackMeta::load_from_current_directory(true).await {
                     Ok(mut modpack_lock) => {
                         let remove_result = modpack_lock.remove_mod(&name, &modpack_meta);
                         if let Err(e) = remove_result {
@@ -243,7 +243,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
             }
             Commands::Download { mods_dir } => {
                 let pack_lock =
-                    resolver::PinnedPackMeta::load_from_current_directory(false).await?;
+                    resolver::PinnedPackMeta::load_from_current_directory(true).await?;
                 pack_lock.download_mods(&mods_dir).await?;
                 println!("Mods updated");
             }
