@@ -63,7 +63,7 @@ enum Commands {
         #[arg(long, short, action)]
         locked: bool,
         /// Minecraft version override
-        #[arg(long, short)]
+        #[arg(long)]
         mc_version: Option<String>,
         /// Modloader override
         #[arg(long, short)]
