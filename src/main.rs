@@ -59,9 +59,9 @@ enum Commands {
         /// URL to download the mod from
         #[arg(long)]
         url: Option<String>,
-        /// Whether to ignore exact transitive mod versions
+        /// Use exact transitive mod dependency versions
         #[arg(long, short, action)]
-        ignore_transitive_versions: bool,
+        locked: bool,
         /// Minecraft version override
         #[arg(long, short)]
         mc_version: Option<String>,
@@ -149,7 +149,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
                 name,
                 providers,
                 url,
-                ignore_transitive_versions,
+                locked,
                 mc_version,
                 modloader,
             } => {
@@ -184,7 +184,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
                 };
 
                 match resolver::PinnedPackMeta::load_from_current_directory(
-                    ignore_transitive_versions,
+                    !locked,
                 )
                 .await
                 {
@@ -195,7 +195,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
                         }
 
                         let pin_result = modpack_lock
-                            .pin_mod_and_deps(&mod_meta, &modpack_meta, ignore_transitive_versions)
+                            .pin_mod_and_deps(&mod_meta, &modpack_meta, !locked)
                             .await;
                         if let Err(e) = pin_result {
                             revert_modpack_meta(e);
