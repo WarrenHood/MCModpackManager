@@ -38,7 +38,7 @@ struct VersionFiles {
     // file_type: String,
     filename: String,
     hashes: VersionHashes,
-    // primary: bool,
+    primary: bool,
     // size: i64,
     url: String,
 }
@@ -177,6 +177,7 @@ impl Modrinth {
             source: package
                 .files
                 .iter()
+                .filter(|f| f.primary)
                 .map(|f| FileSource::Download {
                     url: f.url.clone(),
                     sha1: f.hashes.sha1.clone(),
