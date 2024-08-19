@@ -3,7 +3,7 @@ use sha2::{Digest, Sha512};
 use std::{
     collections::{HashMap, HashSet},
     error::Error,
-    ffi::OsStr,
+    ffi::{OsStr, OsString},
     path::PathBuf,
 };
 
@@ -37,11 +37,12 @@ impl PinnedPackMeta {
         download_side: DownloadSide,
     ) -> Result<(), Box<dyn Error>> {
         let files = std::fs::read_dir(mods_dir)?;
+        let mut pinned_files_cache = HashSet::new();
         for file in files.into_iter() {
             let file = file?;
             if file.file_type()?.is_file() {
                 let filename = file.file_name();
-                if !self.file_is_pinned(&filename, download_side) {
+                if !self.file_is_pinned(&filename, download_side, &mut pinned_files_cache) {
                     println!(
                         "Deleting file {:#?} as it is not in the pinned mods",
                         filename
@@ -101,7 +102,10 @@ impl PinnedPackMeta {
         Ok(())
     }
 
-    pub fn file_is_pinned(&self, file_name: &OsStr, mod_side: DownloadSide) -> bool {
+    pub fn file_is_pinned(&self, file_name: &OsStr, mod_side: DownloadSide, cache: &mut HashSet<OsString>) -> bool {
+        if cache.contains(file_name) {
+            return true;
+        }
         for (_, pinned_mod) in self.mods.iter().filter(|m| {
             mod_side == DownloadSide::Both
                 || mod_side == DownloadSide::Client && m.1.client_side
@@ -115,7 +119,9 @@ impl PinnedPackMeta {
                         sha512,
                         filename,
                     } => {
-                        if OsStr::new(filename) == file_name {
+                        let pinned_filename = OsStr::new(filename);
+                        cache.insert(pinned_filename.into());
+                        if pinned_filename == file_name {
                             return true;
                         }
                     }
@@ -125,7 +131,9 @@ impl PinnedPackMeta {
                         sha512,
                         filename,
                     } => {
-                        if OsStr::new(filename) == file_name {
+                        let pinned_filename = OsStr::new(filename);
+                        cache.insert(pinned_filename.into());
+                        if pinned_filename == file_name {
                             return true;
                         }
                     }
