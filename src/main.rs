@@ -91,6 +91,7 @@ enum Commands {
         #[arg(long, short, default_value_t = DownloadSide::Both)]
         side: DownloadSide,
     },
+    /// Update all mods to the latest possible version
     Update {
         /// Use exact transitive mod dependency versions
         #[arg(long, short, action)]
