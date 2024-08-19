@@ -56,7 +56,7 @@ impl PinnedPackMeta {
                 || download_side == DownloadSide::Client && m.1.client_side
                 || download_side == DownloadSide::Server && m.1.server_side
         }) {
-            for filesource in pinned_mod.source.iter() {
+            if let Some(filesource) = pinned_mod.source.first() {
                 match filesource {
                     crate::providers::FileSource::Download {
                         url,
