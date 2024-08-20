@@ -1,0 +1,7 @@
+[package]
+name = "mmm"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+mcmpmgr = { version = "0.1.0", path = "../mcmpmgr" }

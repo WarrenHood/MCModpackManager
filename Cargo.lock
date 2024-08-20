@@ -716,6 +716,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "mmm"
+version = "0.1.0"
+dependencies = [
+ "mcmpmgr",
+]
+
+[[package]]
 name = "native-tls"
 version = "0.2.12"
 source = "registry+https://github.com/rust-lang/crates.io-index"
