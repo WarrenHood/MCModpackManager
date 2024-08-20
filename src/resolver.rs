@@ -382,13 +382,11 @@ impl PinnedPackMeta {
         Self::load_from_directory(&std::env::current_dir()?, ignore_transitive_versions).await
     }
 
+    /// Load a pack from a git repo cloned to a temporary directory
     pub async fn load_from_git_repo(
         git_url: &str,
         ignore_transitive_versions: bool,
-    ) -> Result<Self, Box<dyn Error>> {
-        // TODO: Refactor the way this works since temp dirs will be deleted before we get to access local mods
-        // That is a problem for the future
-
+    ) -> Result<(Self, tempfile::TempDir), Box<dyn Error>> {
         let pack_dir = tempfile::tempdir()?;
         println!(
             "Cloning modpack from git repo {} to {:#?}...",
@@ -409,6 +407,6 @@ impl PinnedPackMeta {
             modpack_meta.modloader.to_string()
         );
 
-        Ok(pinned_pack_meta)
+        Ok((pinned_pack_meta, pack_dir))
     }
 }

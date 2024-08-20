@@ -300,8 +300,13 @@ async fn main() -> Result<(), Box<dyn Error>> {
                 git,
                 path,
             } => {
+                let mut pack_dir: Option<tempfile::TempDir> = None;
                 let pack_lock = if let Some(git_url) = git {
-                    resolver::PinnedPackMeta::load_from_git_repo(&git_url, true).await?
+                    let (lock_meta, repo_dir) =
+                        resolver::PinnedPackMeta::load_from_git_repo(&git_url, true).await?;
+                        // Hold on to the repo directory until pack_dir is dropped
+                        let _ = pack_dir.insert(repo_dir);
+                        lock_meta
                 } else if let Some(local_path) = path {
                     resolver::PinnedPackMeta::load_from_directory(&local_path, true).await?
                 } else {
