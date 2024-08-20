@@ -1,11 +1,13 @@
 [package]
 name = "mcmpmgr"
+authors = ["Warren Hood <nullbyte001@gmail.com>"]
 version = "0.1.0"
 edition = "2021"
 
 [dependencies]
 clap = { version = "4.5.15", features = ["derive"] }
 git2 = "0.19.0"
+home = "0.5.9"
 lhash = { version = "1.1.0", features = ["sha1", "sha512"] }
 reqwest = { version = "0.12.5", features = ["json"] }
 semver = { version = "1.0.23", features = ["serde"] }

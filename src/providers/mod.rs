@@ -1,6 +1,6 @@
 use crate::mod_meta::ModMeta;
 use serde::{Deserialize, Serialize};
-use std::{collections::HashSet, path::PathBuf, str::FromStr};
+use std::{collections::HashSet, fmt::Display, path::PathBuf, str::FromStr};
 
 pub mod modrinth;
 pub mod raw;
@@ -21,7 +21,7 @@ pub enum FileSource {
     },
 }
 
-#[derive(Debug, PartialEq, Eq, Clone, Copy)]
+#[derive(Debug, PartialEq, Eq, Clone, Copy, Serialize, Deserialize)]
 pub enum DownloadSide {
     Both,
     Server,
@@ -44,14 +44,13 @@ impl FromStr for DownloadSide {
     }
 }
 
-impl ToString for DownloadSide {
-    fn to_string(&self) -> String {
+impl Display for DownloadSide {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            DownloadSide::Both => "Both",
-            DownloadSide::Server => "Server",
-            DownloadSide::Client => "Client",
+            DownloadSide::Both => write!(f, "Both"),
+            DownloadSide::Server => write!(f, "Server"),
+            DownloadSide::Client => write!(f, "Client"),
         }
-        .into()
     }
 }
 

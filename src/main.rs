@@ -1,17 +1,19 @@
 mod mod_meta;
 mod modpack;
+mod profiles;
 mod providers;
 mod resolver;
 
-use clap::{Parser, Subcommand};
+use clap::{Args, Parser, Subcommand};
 use mod_meta::{ModMeta, ModProvider};
 use modpack::ModpackMeta;
+use profiles::{PackSource, Profile};
 use providers::DownloadSide;
 use std::{error::Error, path::PathBuf};
 
 /// A Minecraft Modpack Manager
 #[derive(Parser)]
-#[command(version, about, long_about = None)]
+#[command(author, version, about, long_about = None)]
 struct Cli {
     #[command(subcommand)]
     command: Option<Commands>,
@@ -88,7 +90,7 @@ enum Commands {
         /// Mods directory
         mods_dir: PathBuf,
         /// Side to download for
-        #[arg(long, short, default_value_t = DownloadSide::Both)]
+        #[arg(long, default_value_t = DownloadSide::Server)]
         side: DownloadSide,
         /// Download mods from a remote modpack in a git repo
         #[arg(long)]
@@ -102,6 +104,50 @@ enum Commands {
         /// Use exact transitive mod dependency versions
         #[arg(long, short, action)]
         locked: bool,
+    },
+    /// Manage mcmpmgr profiles
+    Profile(ProfileArgs),
+}
+
+#[derive(Debug, Args)]
+#[command(args_conflicts_with_subcommands = true)]
+struct ProfileArgs {
+    #[command(subcommand)]
+    command: Option<ProfileCommands>,
+}
+
+#[derive(Debug, Subcommand)]
+enum ProfileCommands {
+    /// List all profiles
+    List,
+    /// Add or overwrite a profile
+    Add {
+        /// Name of the profile
+        name: String,
+        /// Side to download the profile for. (Client, Server, or Both)
+        #[arg(long, default_value_t = DownloadSide::Server)]
+        side: DownloadSide,
+        /// A local file path to a modpack directory or a git repo url prefixed with 'git+'
+        #[arg(long, short)]
+        pack_source: PackSource,
+        /// Mods directory
+        #[arg(long, short)]
+        mods_directory: PathBuf,
+    },
+    /// Install a profile
+    Install {
+        /// Name of the profile to install
+        name: String,
+    },
+    /// Show information about a profile
+    Show {
+        /// Name of the profile to show
+        name: String,
+    },
+    /// Delete a profile
+    Remove {
+        /// Profile to remove
+        name: String,
     },
 }
 
@@ -304,9 +350,9 @@ async fn main() -> Result<(), Box<dyn Error>> {
                 let pack_lock = if let Some(git_url) = git {
                     let (lock_meta, repo_dir) =
                         resolver::PinnedPackMeta::load_from_git_repo(&git_url, true).await?;
-                        // Hold on to the repo directory until pack_dir is dropped
-                        let _ = pack_dir.insert(repo_dir);
-                        lock_meta
+                    // Hold on to the repo directory until pack_dir is dropped
+                    let _ = pack_dir.insert(repo_dir);
+                    lock_meta
                 } else if let Some(local_path) = path {
                     resolver::PinnedPackMeta::load_from_directory(&local_path, true).await?
                 } else {
@@ -321,6 +367,55 @@ async fn main() -> Result<(), Box<dyn Error>> {
                 let modpack_meta = ModpackMeta::load_from_current_directory()?;
                 pack_lock.init(&modpack_meta, !locked).await?;
                 pack_lock.save_current_dir_lock()?;
+            }
+            Commands::Profile(ProfileArgs { command }) => {
+                if let Some(command) = command {
+                    match command {
+                        ProfileCommands::List => {
+                            let userdata = profiles::Data::load()?;
+                            println!("Profiles:");
+                            for profile in userdata.get_profile_names().iter() {
+                                println!("- {profile}");
+                            }
+                        }
+                        ProfileCommands::Add {
+                            name,
+                            side,
+                            pack_source,
+                            mods_directory,
+                        } => {
+                            let mut userdata = profiles::Data::load()?;
+                            let profile = Profile::new(&mods_directory, pack_source, side);
+                            userdata.add_profile(&name, profile);
+                            userdata.save()?;
+                            println!("Saved profile '{name}'");
+                        }
+                        ProfileCommands::Install { name } => {
+                            let userdata = profiles::Data::load()?;
+                            let profile = userdata
+                                .get_profile(&name)
+                                .ok_or(format!("Profile '{name}' does not exist"))?;
+                            println!("Installing profile '{name}'...");
+                            profile.install().await?;
+                            println!("Installed profile '{name}' successfully");
+                        }
+                        ProfileCommands::Remove { name } => {
+                            let mut userdata = profiles::Data::load()?;
+                            userdata.remove_profile(&name);
+                            println!("Removed profile '{name}'");
+                        }
+                        ProfileCommands::Show { name } => {
+                            let userdata = profiles::Data::load()?;
+                            let profile = userdata
+                                .get_profile(&name)
+                                .ok_or(format!("Profile '{name}' does not exist"))?;
+                            println!("Profile name  : {name}");
+                            println!("Mods folder   : {}", profile.mods_folder.display());
+                            println!("Modpack source: {}", profile.pack_source);
+                            println!("Side          : {}", profile.side);
+                        }
+                    }
+                }
             }
         }
     };
