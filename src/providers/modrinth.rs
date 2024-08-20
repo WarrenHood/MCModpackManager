@@ -65,7 +65,7 @@ impl Modrinth {
         }
     }
 
-    pub async fn get_project(&self, project_id: &str) -> Result<ModrinthProject, Box<dyn Error>> {
+    async fn get_project(&self, project_id: &str) -> Result<ModrinthProject, Box<dyn Error>> {
         let project: ModrinthProject = self
             .client
             .get(format!("https://api.modrinth.com/v2/project/{project_id}"))

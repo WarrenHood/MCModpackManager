@@ -5,10 +5,12 @@ edition = "2021"
 
 [dependencies]
 clap = { version = "4.5.15", features = ["derive"] }
+git2 = "0.19.0"
 lhash = { version = "1.1.0", features = ["sha1", "sha512"] }
 reqwest = { version = "0.12.5", features = ["json"] }
 semver = { version = "1.0.23", features = ["serde"] }
 serde = { version = "1.0.207", features = ["derive"] }
 sha2 = "0.10.8"
+tempfile = "3.12.0"
 tokio = { version = "1.39.2", features = ["full"] }
 toml = "0.8.19"

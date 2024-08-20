@@ -90,6 +90,12 @@ enum Commands {
         /// Side to download for
         #[arg(long, short, default_value_t = DownloadSide::Both)]
         side: DownloadSide,
+        /// Download mods from a remote modpack in a git repo
+        #[arg(long)]
+        git: Option<String>,
+        /// Download mods from a local modpack
+        #[arg(long)]
+        path: Option<PathBuf>,
     },
     /// Update all mods to the latest possible version
     Update {
@@ -288,8 +294,20 @@ async fn main() -> Result<(), Box<dyn Error>> {
                     }
                 };
             }
-            Commands::Download { mods_dir, side } => {
-                let pack_lock = resolver::PinnedPackMeta::load_from_current_directory(true).await?;
+            Commands::Download {
+                mods_dir,
+                side,
+                git,
+                path,
+            } => {
+                let pack_lock = if let Some(git_url) = git {
+                    resolver::PinnedPackMeta::load_from_git_repo(&git_url, true).await?
+                } else if let Some(local_path) = path {
+                    resolver::PinnedPackMeta::load_from_directory(&local_path, true).await?
+                } else {
+                    resolver::PinnedPackMeta::load_from_current_directory(true).await?
+                };
+
                 pack_lock.download_mods(&mods_dir, side).await?;
                 println!("Mods updated");
             }

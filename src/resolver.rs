@@ -4,7 +4,7 @@ use std::{
     collections::{HashMap, HashSet},
     error::Error,
     ffi::{OsStr, OsString},
-    path::PathBuf,
+    path::{Path, PathBuf},
 };
 
 use crate::{
@@ -61,7 +61,7 @@ impl PinnedPackMeta {
                 match filesource {
                     crate::providers::FileSource::Download {
                         url,
-                        sha1,
+                        sha1: _,
                         sha512,
                         filename,
                     } => {
@@ -90,10 +90,10 @@ impl PinnedPackMeta {
                         tokio::fs::write(mods_dir.join(filename), file_contents).await?;
                     }
                     crate::providers::FileSource::Local {
-                        path,
-                        sha1,
-                        sha512,
-                        filename,
+                        path: _,
+                        sha1: _,
+                        sha512: _,
+                        filename: _,
                     } => unimplemented!(),
                 }
             }
@@ -102,7 +102,12 @@ impl PinnedPackMeta {
         Ok(())
     }
 
-    pub fn file_is_pinned(&self, file_name: &OsStr, mod_side: DownloadSide, cache: &mut HashSet<OsString>) -> bool {
+    pub fn file_is_pinned(
+        &self,
+        file_name: &OsStr,
+        mod_side: DownloadSide,
+        cache: &mut HashSet<OsString>,
+    ) -> bool {
         if cache.contains(file_name) {
             return true;
         }
@@ -114,9 +119,9 @@ impl PinnedPackMeta {
             for filesource in pinned_mod.source.iter() {
                 match filesource {
                     crate::providers::FileSource::Download {
-                        url,
-                        sha1,
-                        sha512,
+                        url: _,
+                        sha1: _,
+                        sha512: _,
                         filename,
                     } => {
                         let pinned_filename = OsStr::new(filename);
@@ -126,9 +131,9 @@ impl PinnedPackMeta {
                         }
                     }
                     crate::providers::FileSource::Local {
-                        path,
-                        sha1,
-                        sha512,
+                        path: _,
+                        sha1: _,
+                        sha512: _,
                         filename,
                     } => {
                         let pinned_filename = OsStr::new(filename);
@@ -353,10 +358,10 @@ impl PinnedPackMeta {
     }
 
     pub async fn load_from_directory(
-        directory: &PathBuf,
+        directory: &Path,
         ignore_transitive_versions: bool,
     ) -> Result<Self, Box<dyn Error>> {
-        let modpack_lock_file_path = directory.clone().join(PathBuf::from(MODPACK_LOCK_FILENAME));
+        let modpack_lock_file_path = directory.join(PathBuf::from(MODPACK_LOCK_FILENAME));
         if !modpack_lock_file_path.exists() {
             let mut new_modpack_lock = Self::new();
             new_modpack_lock
@@ -375,5 +380,35 @@ impl PinnedPackMeta {
         ignore_transitive_versions: bool,
     ) -> Result<Self, Box<dyn Error>> {
         Self::load_from_directory(&std::env::current_dir()?, ignore_transitive_versions).await
+    }
+
+    pub async fn load_from_git_repo(
+        git_url: &str,
+        ignore_transitive_versions: bool,
+    ) -> Result<Self, Box<dyn Error>> {
+        // TODO: Refactor the way this works since temp dirs will be deleted before we get to access local mods
+        // That is a problem for the future
+
+        let pack_dir = tempfile::tempdir()?;
+        println!(
+            "Cloning modpack from git repo {} to {:#?}...",
+            git_url,
+            pack_dir.path()
+        );
+        let _repo = git2::Repository::clone(git_url, pack_dir.path())?;
+
+        let modpack_meta = ModpackMeta::load_from_directory(pack_dir.path())?;
+        let pinned_pack_meta =
+            PinnedPackMeta::load_from_directory(pack_dir.path(), ignore_transitive_versions)
+                .await?;
+
+        println!(
+            "Loaded modpack '{}' (MC {} - {}) from git",
+            modpack_meta.pack_name,
+            modpack_meta.mc_version,
+            modpack_meta.modloader.to_string()
+        );
+
+        Ok(pinned_pack_meta)
     }
 }

@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 use std::{
     collections::{HashMap, HashSet},
     error::Error,
-    path::PathBuf,
+    path::{Path, PathBuf},
 };
 
 const MODPACK_FILENAME: &str = "modpack.toml";
@@ -38,7 +38,7 @@ impl std::str::FromStr for ModLoader {
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct ModpackMeta {
-    pack_name: String,
+    pub pack_name: String,
     pub mc_version: String,
     pub modloader: ModLoader,
     pub mods: HashMap<String, ModMeta>,
@@ -60,8 +60,8 @@ impl ModpackMeta {
         self.mods.values().into_iter()
     }
 
-    pub fn load_from_directory(directory: &PathBuf) -> Result<Self, Box<dyn Error>> {
-        let modpack_meta_file_path = directory.clone().join(PathBuf::from(MODPACK_FILENAME));
+    pub fn load_from_directory(directory: &Path) -> Result<Self, Box<dyn Error>> {
+        let modpack_meta_file_path = directory.join(PathBuf::from(MODPACK_FILENAME));
         if !modpack_meta_file_path.exists() {
             return Err(format!(
                 "Directory '{}' does not seem to be a valid modpack project directory.",
@@ -104,8 +104,8 @@ impl ModpackMeta {
         self
     }
 
-    pub fn init_project(&self, directory: &PathBuf) -> Result<(), Box<dyn Error>> {
-        let modpack_meta_file_path = directory.clone().join(PathBuf::from(MODPACK_FILENAME));
+    pub fn init_project(&self, directory: &Path) -> Result<(), Box<dyn Error>> {
+        let modpack_meta_file_path = directory.join(PathBuf::from(MODPACK_FILENAME));
         if modpack_meta_file_path.exists() {
             return Err(format!(
                 "{MODPACK_FILENAME} already exists at {}",
