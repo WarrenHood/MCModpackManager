@@ -1,8 +1,8 @@
 use crate::mod_meta::{ModMeta, ModProvider};
+use anyhow::Result;
 use serde::{Deserialize, Serialize};
 use std::{
     collections::{HashMap, HashSet},
-    error::Error,
     path::{Path, PathBuf},
 };
 
@@ -25,13 +25,13 @@ impl ToString for ModLoader {
 }
 
 impl std::str::FromStr for ModLoader {
-    type Err = String;
+    type Err = anyhow::Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s {
             "Fabric" => Ok(Self::Fabric),
             "Forge" => Ok(Self::Forge),
-            _ => Err(format!("Invalid mod launcher: {}", s)),
+            _ => anyhow::bail!("Invalid mod launcher: {}", s),
         }
     }
 }
@@ -60,20 +60,19 @@ impl ModpackMeta {
         self.mods.values().into_iter()
     }
 
-    pub fn load_from_directory(directory: &Path) -> Result<Self, Box<dyn Error>> {
+    pub fn load_from_directory(directory: &Path) -> Result<Self> {
         let modpack_meta_file_path = directory.join(PathBuf::from(MODPACK_FILENAME));
         if !modpack_meta_file_path.exists() {
-            return Err(format!(
+            anyhow::bail!(
                 "Directory '{}' does not seem to be a valid modpack project directory.",
                 directory.display()
             )
-            .into());
         };
         let modpack_contents = std::fs::read_to_string(modpack_meta_file_path)?;
         Ok(toml::from_str(&modpack_contents)?)
     }
 
-    pub fn load_from_current_directory() -> Result<Self, Box<dyn Error>> {
+    pub fn load_from_current_directory() -> Result<Self> {
         Self::load_from_directory(&std::env::current_dir()?)
     }
 
@@ -84,9 +83,9 @@ impl ModpackMeta {
         self
     }
 
-    pub fn add_mod(mut self, mod_meta: &ModMeta) -> Result<Self, Box<dyn Error>> {
+    pub fn add_mod(mut self, mod_meta: &ModMeta) -> Result<Self> {
         if self.forbidden_mods.contains(&mod_meta.name) {
-            return Err(format!("Cannot add forbidden mod {} to modpack", mod_meta.name).into());
+            anyhow::bail!("Cannot add forbidden mod {} to modpack", mod_meta.name)
         } else {
             self.mods
                 .insert(mod_meta.name.to_string(), mod_meta.clone());
@@ -104,14 +103,13 @@ impl ModpackMeta {
         self
     }
 
-    pub fn init_project(&self, directory: &Path) -> Result<(), Box<dyn Error>> {
+    pub fn init_project(&self, directory: &Path) -> Result<()> {
         let modpack_meta_file_path = directory.join(PathBuf::from(MODPACK_FILENAME));
         if modpack_meta_file_path.exists() {
-            return Err(format!(
+            anyhow::bail!(
                 "{MODPACK_FILENAME} already exists at {}",
                 modpack_meta_file_path.display()
             )
-            .into());
         }
 
         self.save_to_file(&modpack_meta_file_path)?;
@@ -119,7 +117,7 @@ impl ModpackMeta {
         Ok(())
     }
 
-    pub fn save_to_file(&self, path: &PathBuf) -> Result<(), Box<dyn Error>> {
+    pub fn save_to_file(&self, path: &PathBuf) -> Result<()> {
         std::fs::write(
             path,
             toml::to_string(self).expect("MC Modpack Meta should be serializable"),
@@ -128,7 +126,7 @@ impl ModpackMeta {
         Ok(())
     }
 
-    pub fn save_current_dir_project(&self) -> Result<(), Box<dyn Error>> {
+    pub fn save_current_dir_project(&self) -> Result<()> {
         let modpack_meta_file_path = std::env::current_dir()?.join(PathBuf::from(MODPACK_FILENAME));
         self.save_to_file(&modpack_meta_file_path)?;
         Ok(())

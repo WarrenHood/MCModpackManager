@@ -1,3 +1,4 @@
+use anyhow::Result;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha512};
 use std::{
@@ -35,7 +36,7 @@ impl PinnedPackMeta {
         &self,
         mods_dir: &PathBuf,
         download_side: DownloadSide,
-    ) -> Result<(), Box<dyn Error>> {
+    ) -> Result<()> {
         let files = std::fs::read_dir(mods_dir)?;
         let mut pinned_files_cache = HashSet::new();
         for file in files.into_iter() {
@@ -80,11 +81,12 @@ impl PinnedPackMeta {
                                 "Sha512 hash mismatch for file {}\nExpected:\n{}\nGot:\n{}",
                                 filename, sha512, sha512_hash
                             );
-                            return Err(format!(
+                            anyhow::bail!(
                                 "Sha512 hash mismatch for file {}\nExpected:\n{}\nGot:\n{}",
-                                filename, sha512, sha512_hash
+                                filename,
+                                sha512,
+                                sha512_hash
                             )
-                            .into());
                         }
 
                         tokio::fs::write(mods_dir.join(filename), file_contents).await?;
@@ -154,7 +156,7 @@ impl PinnedPackMeta {
         mod_metadata: &ModMeta,
         pack_metadata: &ModpackMeta,
         ignore_transitive_versions: bool,
-    ) -> Result<(), Box<dyn Error>> {
+    ) -> Result<()> {
         if let Some(mod_meta) = self.mods.get(&mod_metadata.name) {
             if mod_metadata.version != "*" && mod_metadata.version == mod_meta.version {
                 // Skip already pinned mods
@@ -199,7 +201,7 @@ impl PinnedPackMeta {
         &mut self,
         mod_metadata: &ModMeta,
         pack_metadata: &ModpackMeta,
-    ) -> Result<Vec<ModMeta>, Box<dyn Error>> {
+    ) -> Result<Vec<ModMeta>> {
         if pack_metadata.forbidden_mods.contains(&mod_metadata.name) {
             println!("Skipping adding forbidden mod {}...", mod_metadata.name);
             return Ok(vec![]);
@@ -247,11 +249,12 @@ impl PinnedPackMeta {
             };
         }
 
-        Err(format!(
+        anyhow::bail!(
             "Failed to pin mod '{}' (providers={:#?}) with constraint {} and all its deps",
-            mod_metadata.name, mod_metadata.providers, mod_metadata.version
+            mod_metadata.name,
+            mod_metadata.providers,
+            mod_metadata.version
         )
-        .into())
     }
 
     fn get_dependent_mods(&self, mod_name: &str) -> HashSet<String> {
@@ -274,7 +277,7 @@ impl PinnedPackMeta {
         mod_name: &str,
         pack_metadata: &ModpackMeta,
         force: bool,
-    ) -> Result<(), Box<dyn Error>> {
+    ) -> Result<()> {
         if !self.mods.contains_key(mod_name) {
             eprintln!(
                 "Skipping removing non-existent mod {} from modpack",
@@ -288,11 +291,11 @@ impl PinnedPackMeta {
             if force {
                 println!("Forcefully removing mod {} even though it is depended on by the following mods:\n{:#?}", mod_name, dependent_mods);
             } else {
-                return Err(format!(
+                anyhow::bail!(
                     "Cannot remove mod {}.The following mods depend on it:\n{:#?}",
-                    mod_name, dependent_mods
+                    mod_name,
+                    dependent_mods
                 )
-                .into());
             }
         }
         let removed_mod = self.mods.remove(mod_name);
@@ -304,7 +307,7 @@ impl PinnedPackMeta {
     }
 
     /// Remove all mods from lockfile that aren't in the pack metadata or depended on by another mod
-    fn prune_mods(&mut self, pack_metadata: &ModpackMeta) -> Result<(), Box<dyn Error>> {
+    fn prune_mods(&mut self, pack_metadata: &ModpackMeta) -> Result<()> {
         let mods_to_remove: HashSet<String> = self
             .mods
             .keys()
@@ -329,7 +332,7 @@ impl PinnedPackMeta {
         &mut self,
         modpack_meta: &ModpackMeta,
         ignore_transitive_versions: bool,
-    ) -> Result<(), Box<dyn Error>> {
+    ) -> Result<()> {
         for mod_meta in modpack_meta.iter_mods() {
             self.pin_mod_and_deps(mod_meta, modpack_meta, ignore_transitive_versions)
                 .await?;
@@ -337,7 +340,7 @@ impl PinnedPackMeta {
         Ok(())
     }
 
-    pub fn save_to_file(&self, path: &PathBuf) -> Result<(), Box<dyn Error>> {
+    pub fn save_to_file(&self, path: &PathBuf) -> Result<()> {
         std::fs::write(
             path,
             toml::to_string(self).expect("Pinned pack meta should be serializable"),
@@ -346,12 +349,12 @@ impl PinnedPackMeta {
         Ok(())
     }
 
-    pub fn save_current_dir_lock(&self) -> Result<(), Box<dyn Error>> {
+    pub fn save_current_dir_lock(&self) -> Result<()> {
         self.save_to_dir(&std::env::current_dir()?)?;
         Ok(())
     }
 
-    pub fn save_to_dir(&self, dir: &PathBuf) -> Result<(), Box<dyn Error>> {
+    pub fn save_to_dir(&self, dir: &PathBuf) -> Result<()> {
         let modpack_lock_file_path = dir.join(PathBuf::from(MODPACK_LOCK_FILENAME));
         self.save_to_file(&modpack_lock_file_path)?;
         Ok(())
@@ -360,7 +363,7 @@ impl PinnedPackMeta {
     pub async fn load_from_directory(
         directory: &Path,
         ignore_transitive_versions: bool,
-    ) -> Result<Self, Box<dyn Error>> {
+    ) -> Result<Self> {
         let modpack_lock_file_path = directory.join(PathBuf::from(MODPACK_LOCK_FILENAME));
         if !modpack_lock_file_path.exists() {
             let mut new_modpack_lock = Self::new();
@@ -378,7 +381,7 @@ impl PinnedPackMeta {
 
     pub async fn load_from_current_directory(
         ignore_transitive_versions: bool,
-    ) -> Result<Self, Box<dyn Error>> {
+    ) -> Result<Self> {
         Self::load_from_directory(&std::env::current_dir()?, ignore_transitive_versions).await
     }
 
@@ -386,7 +389,7 @@ impl PinnedPackMeta {
     pub async fn load_from_git_repo(
         git_url: &str,
         ignore_transitive_versions: bool,
-    ) -> Result<(Self, tempfile::TempDir), Box<dyn Error>> {
+    ) -> Result<(Self, tempfile::TempDir)> {
         let pack_dir = tempfile::tempdir()?;
         println!(
             "Cloning modpack from git repo {} to {:#?}...",

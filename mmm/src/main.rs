@@ -1,3 +1,4 @@
+use std::fmt::format;
 use std::path::PathBuf;
 use std::str::FromStr;
 
@@ -24,6 +25,7 @@ struct ManagerGUI {
     previous_view: ManagerView,
     profile_edit_settings: ProfileSettings,
     profile_save_error: Option<String>,
+    current_install_status: ProfileInstallStatus
 }
 
 #[derive(Debug, Clone)]
@@ -84,6 +86,22 @@ enum Message {
     EditPackSource(String),
     SaveProfile,
     DeleteProfile(String),
+    InstallProfile(String),
+    ProfileInstalled(ProfileInstallStatus)
+}
+
+#[derive(Debug, Clone)]
+enum ProfileInstallStatus {
+    NotStarted,
+    Installing,
+    Success,
+    Error(String)
+}
+
+impl Default for ProfileInstallStatus {
+    fn default() -> Self {
+        Self::NotStarted
+    }
 }
 
 impl Application for ManagerGUI {
@@ -206,6 +224,34 @@ impl Application for ManagerGUI {
 
                 Command::none()
             }
+            Message::InstallProfile(name) => {
+                self.current_install_status = ProfileInstallStatus::Installing;
+                let profile_name = name.clone();
+                let profile = self.userdata.get_profile(&name).cloned();
+                Command::perform(
+                    async move {
+                        if let Some(profile) = profile {
+                            let result = profile.install().await;
+                            if let Err(err) = result {
+                                ProfileInstallStatus::Error(format!("{}", err))
+                            }
+                            else {
+                                ProfileInstallStatus::Success
+                            }
+                        }
+                        else {
+                            ProfileInstallStatus::Error(format!("Profile '{}' doesn't exist", name))
+                        }
+                    },
+                    Message::ProfileInstalled
+                )
+            },
+            Message::ProfileInstalled(result) => {
+                self.current_install_status  = result;
+
+                Command::none()
+            },
+            
         }
     }
 
@@ -283,6 +329,7 @@ impl ManagerGUI {
                 ]
                 .spacing(20),
                 row!["Mods to download", text(profile.side),].spacing(5),
+                button("Install").on_press(Message::InstallProfile(profile_name.into())),
                 row![
                     button("Back").on_press(Message::SwitchView(ManagerView::ProfileSelect)),
                     button("Edit profile").on_press(Message::SwitchView(
@@ -304,6 +351,19 @@ impl ManagerGUI {
         if let Some(err) = &self.userdata_load_error {
             profile_view = profile_view.push(text(err));
         }
+
+        match &self.current_install_status {
+            ProfileInstallStatus::NotStarted => {},
+            ProfileInstallStatus::Installing => {
+                profile_view = profile_view.push(text("Installing..."));
+            },
+            ProfileInstallStatus::Success => {
+                profile_view = profile_view.push(text("Installed"));
+            },
+            ProfileInstallStatus::Error(err) => {
+                profile_view = profile_view.push(text(format!("Failed to install profile: {}", err)));
+            },
+        };        
 
         profile_view
             .align_items(Alignment::Center)

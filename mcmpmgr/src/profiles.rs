@@ -1,3 +1,4 @@
+use anyhow::Result;
 use serde::{Deserialize, Serialize};
 use std::{
     collections::HashMap,
@@ -57,7 +58,7 @@ impl Profile {
         }
     }
 
-    pub async fn install(&self) -> Result<(), Box<dyn Error>> {
+    pub async fn install(&self) -> Result<()> {
         let (pack_lock, temp_dir) = match &self.pack_source {
             PackSource::Git { url } => {
                 let (pack_lock, packdir) = PinnedPackMeta::load_from_git_repo(&url, true).await?;
@@ -112,13 +113,19 @@ impl Data {
         self.profiles.remove(profile_name);
     }
 
-    fn get_config_folder_path() -> Result<PathBuf, Box<dyn Error>> {
-        home::home_dir()
-            .and_then(|home_dir| Some(home_dir.join(format!(".config/{CONFIG_DIR_NAME}"))))
-            .ok_or("Unable to locate home directory".into())
+    fn get_config_folder_path() -> Result<PathBuf> {
+        let home_dir = home::home_dir()
+            .and_then(|home_dir| Some(home_dir.join(format!(".config/{CONFIG_DIR_NAME}"))));
+
+        if let Some(home_dir) = home_dir {
+            Ok(home_dir)
+        }
+        else {
+            anyhow::bail!("Unable to locate home directory")
+        }
     }
 
-    pub fn load() -> Result<Self, Box<dyn Error>> {
+    pub fn load() -> Result<Self> {
         let config_dir = Self::get_config_folder_path()?;
         if !config_dir.exists() {
             println!("Creating config directory {config_dir:#?}...");
@@ -135,7 +142,7 @@ impl Data {
         })
     }
 
-    pub fn save(&self) -> Result<(), Box<dyn Error>> {
+    pub fn save(&self) -> Result<()> {
         let config_dir = Self::get_config_folder_path()?;
         if !config_dir.exists() {
             println!("Creating config directory {config_dir:#?}...");

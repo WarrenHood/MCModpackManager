@@ -4,6 +4,7 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+anyhow = "1.0.86"
 iced = { version = "0.12.1", features = ["tokio"] }
 mcmpmgr = { version = "0.1.0", path = "../mcmpmgr" }
 rfd = "0.14.1"

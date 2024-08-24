@@ -4,12 +4,13 @@ mod profiles;
 mod providers;
 mod resolver;
 
+use anyhow::{Error, Result};
 use clap::{Args, Parser, Subcommand};
 use mod_meta::{ModMeta, ModProvider};
 use modpack::ModpackMeta;
 use profiles::{PackSource, Profile};
 use providers::DownloadSide;
-use std::{error::Error, path::PathBuf};
+use std::path::PathBuf;
 
 /// A Minecraft Modpack Manager
 #[derive(Parser)]
@@ -152,7 +153,7 @@ enum ProfileCommands {
 }
 
 #[tokio::main(flavor = "multi_thread")]
-async fn main() -> Result<(), Box<dyn Error>> {
+async fn main() -> anyhow::Result<()> {
     let cli = Cli::parse();
 
     if let Some(command) = cli.command {
@@ -168,13 +169,15 @@ async fn main() -> Result<(), Box<dyn Error>> {
                 let pack_name = if let Some(name) = name {
                     name
                 } else {
-                    dir.file_name()
-                        .ok_or(format!(
+                    let dir_name = dir.file_name();
+                    if let Some(dir_name) = dir_name {
+                        dir_name.to_string_lossy().to_string()
+                    } else {
+                        anyhow::bail!(
                             "Cannot find pack name based on directory '{}'",
                             dir.display()
-                        ))?
-                        .to_string_lossy()
-                        .into()
+                        )
+                    }
                 };
                 println!(
                     "Initializing project '{}' at '{}'...",
@@ -392,9 +395,14 @@ async fn main() -> Result<(), Box<dyn Error>> {
                         }
                         ProfileCommands::Install { name } => {
                             let userdata = profiles::Data::load()?;
-                            let profile = userdata
-                                .get_profile(&name)
-                                .ok_or(format!("Profile '{name}' does not exist"))?;
+                            let profile = userdata.get_profile(&name);
+
+                            let profile = if let Some(profile) = profile {
+                                profile
+                            } else {
+                                anyhow::bail!("Profile '{name}' does not exist")
+                            };
+
                             println!("Installing profile '{name}'...");
                             profile.install().await?;
                             println!("Installed profile '{name}' successfully");
@@ -406,9 +414,13 @@ async fn main() -> Result<(), Box<dyn Error>> {
                         }
                         ProfileCommands::Show { name } => {
                             let userdata = profiles::Data::load()?;
-                            let profile = userdata
-                                .get_profile(&name)
-                                .ok_or(format!("Profile '{name}' does not exist"))?;
+                            let profile = userdata.get_profile(&name);
+
+                            let profile = if let Some(profile) = profile {
+                                profile
+                            } else {
+                                anyhow::bail!("Profile '{name}' does not exist")
+                            };
                             println!("Profile name  : {name}");
                             println!("Mods folder   : {}", profile.mods_folder.display());
                             println!("Modpack source: {}", profile.pack_source);

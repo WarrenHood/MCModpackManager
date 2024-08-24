@@ -1,6 +1,6 @@
-use std::{borrow::BorrowMut, error::Error};
-
+use anyhow::Result;
 use serde::{Deserialize, Serialize};
+use std::{borrow::BorrowMut, error::Error};
 
 use crate::modpack::ModLoader;
 
@@ -15,14 +15,14 @@ pub enum ModProvider {
 }
 
 impl std::str::FromStr for ModProvider {
-    type Err = String;
+    type Err = anyhow::Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s.to_lowercase().as_str() {
             "curseforge" => Ok(ModProvider::CurseForge),
             "modrinth" => Ok(ModProvider::Modrinth),
             "raw" => Ok(ModProvider::Raw),
-            _ => Err(format!("Invalid mod launcher: {}", s)),
+            _ => anyhow::bail!("Invalid mod provider: {}", s),
         }
     }
 }
@@ -47,11 +47,11 @@ impl PartialEq for ModMeta {
 impl Eq for ModMeta {}
 
 impl ModMeta {
-    pub fn new(mod_name: &str) -> Result<Self, Box<dyn Error>> {
+    pub fn new(mod_name: &str) -> Result<Self> {
         if mod_name.contains("@") {
             let mod_name_and_version: Vec<&str> = mod_name.split("@").collect();
             if mod_name_and_version.len() != 2 {
-                return Err(format!("Invalid mod with version constraint: '{}'", &mod_name).into());
+                anyhow::bail!("Invalid mod with version constraint: '{}'", &mod_name)
             }
             return Ok(Self {
                 name: mod_name_and_version[0].into(),

@@ -29,17 +29,14 @@ pub enum DownloadSide {
 }
 
 impl FromStr for DownloadSide {
-    type Err = String;
+    type Err = anyhow::Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s.to_ascii_lowercase().as_str() {
             "both" => Ok(DownloadSide::Both),
             "client" => Ok(DownloadSide::Client),
             "server" => Ok(DownloadSide::Server),
-            _ => Err(format!(
-                "Invalid side {}. Expected one of: both, server, clide",
-                s
-            )),
+            _ => anyhow::bail!("Invalid side {}. Expected one of: both, server, clide", s),
         }
     }
 }

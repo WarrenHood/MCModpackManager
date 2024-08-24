@@ -1,5 +1,6 @@
+use anyhow::{Error, Result};
 use serde::{Deserialize, Serialize};
-use std::{collections::HashSet, error::Error};
+use std::collections::HashSet;
 
 use super::PinnedMod;
 use crate::{
@@ -65,7 +66,7 @@ impl Modrinth {
         }
     }
 
-    async fn get_project(&self, project_id: &str) -> Result<ModrinthProject, Box<dyn Error>> {
+    async fn get_project(&self, project_id: &str) -> Result<ModrinthProject> {
         let project: ModrinthProject = self
             .client
             .get(format!("https://api.modrinth.com/v2/project/{project_id}"))
@@ -84,7 +85,7 @@ impl Modrinth {
         pack_meta: &ModpackMeta,
         loader_override: Option<ModLoader>,
         game_version_override: Option<String>,
-    ) -> Result<ModMeta, Box<dyn Error>> {
+    ) -> Result<ModMeta> {
         let project_versions = self
             .get_project_versions(
                 project_id,
@@ -113,20 +114,15 @@ impl Modrinth {
                 return Ok(mod_meta);
             }
         }
-        Err(format!(
+        anyhow::bail!(
             "Couldn't find project '{}' with version '{}'",
             project_id,
             project_version.unwrap_or("*")
         )
-        .into())
     }
 
     /// Resolve a list of mod candidates in order of newest to oldest
-    pub async fn resolve(
-        &self,
-        mod_meta: &ModMeta,
-        pack_meta: &ModpackMeta,
-    ) -> Result<PinnedMod, Box<dyn Error>> {
+    pub async fn resolve(&self, mod_meta: &ModMeta, pack_meta: &ModpackMeta) -> Result<PinnedMod> {
         let versions = self
             .get_project_versions(
                 &mod_meta.name,
@@ -138,21 +134,28 @@ impl Modrinth {
             .await?;
 
         let package = if mod_meta.version == "*" {
-            versions.first().ok_or(format!(
-                "Cannot find package {} for loader={} and mc version={}",
-                mod_meta.name,
-                pack_meta.modloader.to_string().to_lowercase(),
-                pack_meta.mc_version
-            ))?
+            let version = versions.first();
+            if let Some(version) = version {
+                version
+            } else {
+                anyhow::bail!(
+                    "Cannot find package {} for loader={} and mc version={}",
+                    mod_meta.name,
+                    pack_meta.modloader.to_string().to_lowercase(),
+                    pack_meta.mc_version
+                )
+            }
         } else {
-            versions
+            let version = versions
                 .iter()
                 .filter(|v| v.version_number == mod_meta.version)
-                .nth(0)
-                .ok_or(format!(
-                    "Cannot find package {}@{}",
-                    mod_meta.name, mod_meta.version
-                ))?
+                .nth(0);
+
+            if let Some(version) = version {
+                version
+            } else {
+                anyhow::bail!("Cannot find package {}@{}", mod_meta.name, mod_meta.version)
+            }
         };
 
         let mut deps_meta = HashSet::new();
@@ -207,7 +210,7 @@ impl Modrinth {
         ignore_game_version_and_loader: bool, // For deps we might as well let them use anything
         loader_override: Option<ModLoader>,
         game_version_override: Option<String>,
-    ) -> Result<Vec<ModrinthProjectVersion>, Box<dyn Error>> {
+    ) -> Result<Vec<ModrinthProjectVersion>> {
         let loader = loader_override
             .unwrap_or(pack_meta.modloader.clone())
             .to_string()
