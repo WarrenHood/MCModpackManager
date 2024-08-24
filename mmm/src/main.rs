@@ -1,4 +1,5 @@
 use std::path::PathBuf;
+use std::str::FromStr;
 
 use iced::widget::{
     button, checkbox, column, container, horizontal_rule, pick_list, progress_bar, row, scrollable,
@@ -7,6 +8,7 @@ use iced::widget::{
 use iced::{executor, Application, Command, Executor};
 use iced::{Alignment, Element, Length, Sandbox, Settings, Theme};
 use mcmpmgr::profiles::{self, Profile};
+use mcmpmgr::providers::DownloadSide;
 
 pub fn main() -> iced::Result {
     ManagerGUI::run(Settings::default())
@@ -39,6 +41,7 @@ struct ProfileSettings {
     name: String,
     mods_dir: Option<PathBuf>,
     pack_source: String,
+    side: DownloadSide,
 }
 
 impl Default for ProfileSettings {
@@ -47,7 +50,23 @@ impl Default for ProfileSettings {
             name: Default::default(),
             mods_dir: Default::default(),
             pack_source: Default::default(),
+            side: DownloadSide::Client,
         }
+    }
+}
+
+impl TryFrom<ProfileSettings> for profiles::Profile {
+    type Error = String;
+    fn try_from(value: ProfileSettings) -> Result<Self, Self::Error> {
+        let mods_dir = value
+            .mods_dir
+            .ok_or(format!("A mods directory is required"))?;
+        let pack_source = value.pack_source;
+        Ok(profiles::Profile::new(
+            &mods_dir,
+            profiles::PackSource::from_str(&pack_source)?,
+            value.side,
+        ))
     }
 }
 
@@ -136,11 +155,22 @@ impl Application for ManagerGUI {
                 Command::none()
             }
             Message::SaveProfile => {
-                // TODO: Save profile
-                self.profile_save_error = Some(format!(
-                    "Unable to save profile '{}'. Saving not implemented",
-                    self.profile_edit_settings.name
-                ));
+                let profile: Result<profiles::Profile, String> =
+                    profiles::Profile::try_from(self.profile_edit_settings.clone());
+
+                if let Ok(profile) = profile {
+                    if self.profile_edit_settings.name.trim().len() == 0 {
+                        self.profile_save_error =
+                            format!("Invalid profile name {}", self.profile_edit_settings.name)
+                                .into();
+                    } else {
+                        self.userdata
+                            .add_profile(self.profile_edit_settings.name.trim(), profile);
+                    }
+                } else if let Err(err) = profile {
+                    self.profile_save_error = err.into();
+                };
+
                 Command::none()
             }
             Message::DeleteProfile(name) => {
@@ -161,12 +191,13 @@ impl Application for ManagerGUI {
         let contents = match &self.current_view {
             ManagerView::ProfileSelect => self.view_profile_select(),
             ManagerView::ProfileView { profile } => self.view_profile_view(&profile),
-            ManagerView::AddProfile => self.view_profile_edit("", ManagerView::ProfileSelect),
+            ManagerView::AddProfile => self.view_profile_edit("", ManagerView::ProfileSelect, true),
             ManagerView::EditProfile { profile } => self.view_profile_edit(
                 &profile,
                 ManagerView::ProfileView {
                     profile: profile.clone(),
                 },
+                false,
             ),
         };
 
@@ -215,36 +246,66 @@ impl ManagerGUI {
     }
 
     fn view_profile_view(&self, profile_name: &str) -> Element<Message> {
-        let mut profile_view = column![
-            text(format!("Modpack Profile: {profile_name}")),
-            row![
-                button("Back").on_press(Message::SwitchView(ManagerView::ProfileSelect)),
-                button("Edit profile").on_press(Message::SwitchView(ManagerView::EditProfile {
-                    profile: profile_name.into()
-                })),
-                button("Delete profile").on_press(Message::DeleteProfile(profile_name.into()))
+        let mut profile_view = if let Some(profile) = self.userdata.get_profile(profile_name) {
+            column![
+                text(format!("Modpack Profile: {profile_name}"))
+                    .horizontal_alignment(iced::alignment::Horizontal::Center),
+                row![
+                    "Modpack source",
+                    text_input("Modpack source", &profile.pack_source.to_string()),
+                ]
+                .spacing(5),
+                row![
+                    "Mods directory",
+                    text_input("Mods directory", &profile.mods_folder.display().to_string()),
+                ]
+                .spacing(20),
+                row!["Mods to download", text(profile.side),].spacing(5),
+                row![
+                    button("Back").on_press(Message::SwitchView(ManagerView::ProfileSelect)),
+                    button("Edit profile").on_press(Message::SwitchView(
+                        ManagerView::EditProfile {
+                            profile: profile_name.into()
+                        }
+                    )),
+                    button("Delete profile").on_press(Message::DeleteProfile(profile_name.into()))
+                ]
+                .spacing(5)
             ]
-            .spacing(5)
-        ];
+        } else {
+            column![
+                text(format!("Unable to load profile: {profile_name}")),
+                button("Back").on_press(Message::SwitchView(ManagerView::ProfileSelect)),
+            ]
+        };
 
         if let Some(err) = &self.userdata_load_error {
             profile_view = profile_view.push(text(err));
         }
 
-        profile_view.spacing(20).padding(20).into()
+        profile_view
+            .align_items(Alignment::Center)
+            .spacing(10)
+            .padding(20)
+            .into()
     }
 
     fn view_profile_edit(
         &self,
         profile_name: &str,
         previous_view: ManagerView,
+        can_edit_name: bool,
     ) -> Element<Message> {
         let mut profile_editor = column![
             text("Profile Add/Edit").horizontal_alignment(iced::alignment::Horizontal::Center),
             row![
                 "Profile name",
-                text_input("Enter your profile name", &self.profile_edit_settings.name)
-                    .on_input(Message::EditProfileName)
+                if can_edit_name {
+                    text_input("Enter your profile name", &self.profile_edit_settings.name)
+                        .on_input(Message::EditProfileName)
+                } else {
+                    text_input("Profile name", &self.profile_edit_settings.name)
+                }
             ]
             .spacing(5),
             row![
