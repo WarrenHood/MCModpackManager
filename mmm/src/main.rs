@@ -1,10 +1,10 @@
 use std::path::PathBuf;
 
-use iced::executor;
 use iced::widget::{
     button, checkbox, column, container, horizontal_rule, pick_list, progress_bar, row, scrollable,
-    slider, text, text_input, toggler, vertical_rule, vertical_space,
+    slider, text, text_input, toggler, vertical_rule, vertical_space, Column,
 };
+use iced::{executor, Application, Command, Executor};
 use iced::{Alignment, Element, Length, Sandbox, Settings, Theme};
 use mcmpmgr::profiles::{self, Profile};
 
@@ -17,6 +17,7 @@ struct ManagerGUI {
     theme: Theme,
     selected_profile: Option<String>,
     userdata: profiles::Data,
+    userdata_load_error: Option<String>,
     current_view: ManagerView,
     previous_view: ManagerView,
     profile_edit_settings: ProfileSettings,
@@ -65,20 +66,34 @@ enum Message {
     SaveProfile,
 }
 
-impl Sandbox for ManagerGUI {
+impl Application for ManagerGUI {
     type Message = Message;
+    type Executor = executor::Default;
+    type Theme = Theme;
+    type Flags = ();
 
-    fn new() -> Self {
+    fn new(_flags: Self::Flags) -> (Self, Command<Self::Message>) {
         let mut gui = ManagerGUI::default();
         gui.theme = Theme::GruvboxDark;
-        gui
+        let loaded_userdata = profiles::Data::load();
+
+        match loaded_userdata {
+            Ok(userdata) => {
+                gui.userdata = userdata;
+            }
+            Err(err) => {
+                gui.userdata_load_error = Some(err.to_string());
+            }
+        };
+
+        (gui, Command::none())
     }
 
     fn title(&self) -> String {
         String::from("Minecraft Modpack Manager")
     }
 
-    fn update(&mut self, message: Message) {
+    fn update(&mut self, message: Message) -> Command<Message> {
         match message {
             Message::SwitchView(view) => {
                 match &view {
@@ -86,24 +101,46 @@ impl Sandbox for ManagerGUI {
                         self.profile_save_error = None;
                         self.profile_edit_settings = ProfileSettings::default();
                     }
+                    ManagerView::ProfileSelect => {
+                        let loaded_userdata = profiles::Data::load();
+
+                        match loaded_userdata {
+                            Ok(userdata) => {
+                                self.userdata = userdata;
+                                self.userdata_load_error = None;
+                            }
+                            Err(err) => {
+                                self.userdata_load_error = Some(err.to_string());
+                            }
+                        };
+                    }
                     // TODO: Load profile for EditProfile
                     _ => {}
                 };
                 self.current_view = view;
+                Command::none()
             }
             Message::BrowseModsDir => {
                 self.profile_edit_settings.mods_dir = rfd::FileDialog::new()
                     .set_title("Select your mods folder")
                     .pick_folder();
+                Command::none()
             }
-            Message::EditProfileName(name) => self.profile_edit_settings.name = name,
-            Message::EditPackSource(pack_source) => self.profile_edit_settings.pack_source = pack_source,
+            Message::EditProfileName(name) => {
+                self.profile_edit_settings.name = name;
+                Command::none()
+            }
+            Message::EditPackSource(pack_source) => {
+                self.profile_edit_settings.pack_source = pack_source;
+                Command::none()
+            }
             Message::SaveProfile => {
                 // TODO: Save profile
                 self.profile_save_error = Some(format!(
                     "Unable to save profile '{}'. Saving not implemented",
                     self.profile_edit_settings.name
-                ))
+                ));
+                Command::none()
             }
         }
     }
@@ -135,26 +172,53 @@ impl Sandbox for ManagerGUI {
 
 impl ManagerGUI {
     fn view_profile_select(&self) -> Element<Message> {
-        column![
-            text("Profile Select"),
-            button("Add profile").on_press(Message::SwitchView(ManagerView::AddProfile))
-        ]
-        .spacing(10)
-        .padding(10)
+        let mut profile_select = column![text("Profile Select"),];
+
+        let mut profiles_list: Column<Message> = column!();
+        let mut profile_names = self.userdata.get_profile_names();
+        profile_names.sort();
+
+        for profile_name in profile_names.iter() {
+            profiles_list = profiles_list.push(
+                button(text(profile_name))
+                    .on_press(Message::SwitchView(ManagerView::ProfileView {
+                        profile: profile_name.into(),
+                    }))
+                    .width(Length::Fill),
+            );
+        }
+
+        profile_select =
+            profile_select.push(profiles_list.align_items(Alignment::Center).spacing(1));
+        profile_select = profile_select
+            .push(button("Add profile").on_press(Message::SwitchView(ManagerView::AddProfile)));
+
+        scrollable(
+            profile_select
+                .spacing(10)
+                .align_items(Alignment::Center)
+                .padding(10),
+        )
         .into()
     }
 
     fn view_profile_view(&self, profile_name: &str) -> Element<Message> {
-        column![
+        let mut profile_view = column![
             text(format!("Modpack Profile: {profile_name}")),
-            button("Back").on_press(Message::SwitchView(ManagerView::ProfileSelect)),
-            button("Edit profile").on_press(Message::SwitchView(ManagerView::EditProfile {
-                profile: profile_name.into()
-            }))
-        ]
-        .spacing(20)
-        .padding(20)
-        .into()
+            row![
+                button("Back").on_press(Message::SwitchView(ManagerView::ProfileSelect)),
+                button("Edit profile").on_press(Message::SwitchView(ManagerView::EditProfile {
+                    profile: profile_name.into()
+                }))
+            ]
+            .spacing(5)
+        ];
+
+        if let Some(err) = &self.userdata_load_error {
+            profile_view = profile_view.push(text(err));
+        }
+
+        profile_view.spacing(20).padding(20).into()
     }
 
     fn view_profile_edit(
@@ -163,7 +227,7 @@ impl ManagerGUI {
         previous_view: ManagerView,
     ) -> Element<Message> {
         let mut profile_editor = column![
-            text("Profile Add/Edit"),
+            text("Profile Add/Edit").horizontal_alignment(iced::alignment::Horizontal::Center),
             row![
                 "Profile name",
                 text_input("Enter your profile name", &self.profile_edit_settings.name)
@@ -181,11 +245,13 @@ impl ManagerGUI {
             .spacing(5),
             row![
                 "Mods directory",
-                text(if let Some(mods_dir) = &self.profile_edit_settings.mods_dir {
-                    mods_dir.display().to_string()
-                } else {
-                    "".into()
-                }),
+                text(
+                    if let Some(mods_dir) = &self.profile_edit_settings.mods_dir {
+                        mods_dir.display().to_string()
+                    } else {
+                        "".into()
+                    }
+                ),
                 button("Browse").on_press(Message::BrowseModsDir)
             ]
             .spacing(5),
@@ -195,6 +261,7 @@ impl ManagerGUI {
             ]
             .spacing(10)
         ]
+        .align_items(Alignment::Center)
         .spacing(10)
         .padding(20);
 
