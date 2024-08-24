@@ -166,6 +166,15 @@ impl Application for ManagerGUI {
                     } else {
                         self.userdata
                             .add_profile(self.profile_edit_settings.name.trim(), profile);
+                        let save_result = self.userdata.save();
+                        if let Err(err) = save_result {
+                            self.profile_save_error =
+                                format!("Unable to save profile: {err:#?}").into();
+                        } else {
+                            self.current_view = ManagerView::ProfileView {
+                                profile: self.profile_edit_settings.name.trim().into(),
+                            }
+                        }
                     }
                 } else if let Err(err) = profile {
                     self.profile_save_error = err.into();
