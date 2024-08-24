@@ -318,6 +318,10 @@ impl ManagerGUI {
         previous_view: ManagerView,
         can_edit_name: bool,
     ) -> Element<Message> {
+        let current_mods_directory_display = match &self.profile_edit_settings.mods_dir {
+            Some(mods_dir) => mods_dir.display().to_string(),
+            None => String::from(""),
+        };
         let mut profile_editor = column![
             text("Profile Add/Edit").horizontal_alignment(iced::alignment::Horizontal::Center),
             row![
@@ -341,12 +345,9 @@ impl ManagerGUI {
             .spacing(5),
             row![
                 "Mods directory",
-                text(
-                    if let Some(mods_dir) = &self.profile_edit_settings.mods_dir {
-                        mods_dir.display().to_string()
-                    } else {
-                        "".into()
-                    }
+                text_input(
+                    "Browse for your MC instance's mods directory",
+                    &current_mods_directory_display
                 ),
                 button("Browse").on_press(Message::BrowseModsDir)
             ]
