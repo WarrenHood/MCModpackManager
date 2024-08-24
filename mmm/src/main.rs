@@ -134,7 +134,20 @@ impl Application for ManagerGUI {
                             }
                         };
                     }
-                    // TODO: Load profile for EditProfile
+                    ManagerView::EditProfile { profile } => {
+                        let loaded_profile = self.userdata.get_profile(profile);
+                        self.profile_edit_settings.name = profile.trim().into();
+                        if let Some(loaded_profile) = loaded_profile {
+                            self.profile_edit_settings.name = profile.into();
+                            self.profile_edit_settings.mods_dir =
+                                Some(loaded_profile.mods_folder.clone());
+                            self.profile_edit_settings.pack_source =
+                                loaded_profile.pack_source.to_string();
+                            self.profile_edit_settings.side = loaded_profile.side;
+                        } else {
+                            eprintln!("Failed to load existing profile data for {profile}");
+                        }
+                    }
                     _ => {}
                 };
                 self.current_view = view;
