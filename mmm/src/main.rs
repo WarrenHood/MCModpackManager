@@ -64,6 +64,7 @@ enum Message {
     EditProfileName(String),
     EditPackSource(String),
     SaveProfile,
+    DeleteProfile(String),
 }
 
 impl Application for ManagerGUI {
@@ -142,6 +143,17 @@ impl Application for ManagerGUI {
                 ));
                 Command::none()
             }
+            Message::DeleteProfile(name) => {
+                self.userdata.remove_profile(&name);
+                let save_result = self.userdata.save();
+                if let Err(err) = save_result {
+                    self.profile_save_error = Some(err.to_string());
+                } else {
+                    self.current_view = ManagerView::ProfileSelect;
+                }
+
+                Command::none()
+            }
         }
     }
 
@@ -209,7 +221,8 @@ impl ManagerGUI {
                 button("Back").on_press(Message::SwitchView(ManagerView::ProfileSelect)),
                 button("Edit profile").on_press(Message::SwitchView(ManagerView::EditProfile {
                     profile: profile_name.into()
-                }))
+                })),
+                button("Delete profile").on_press(Message::DeleteProfile(profile_name.into()))
             ]
             .spacing(5)
         ];
