@@ -134,6 +134,7 @@ impl Application for ManagerGUI {
     fn update(&mut self, message: Message) -> Command<Message> {
         match message {
             Message::SwitchView(view) => {
+                self.current_install_status = ProfileInstallStatus::NotStarted;
                 match &view {
                     ManagerView::AddProfile => {
                         self.profile_save_error = None;
