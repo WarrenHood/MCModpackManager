@@ -25,7 +25,7 @@ struct ManagerGUI {
     previous_view: ManagerView,
     profile_edit_settings: ProfileSettings,
     profile_save_error: Option<String>,
-    current_install_status: ProfileInstallStatus
+    current_install_status: ProfileInstallStatus,
 }
 
 #[derive(Debug, Clone)]
@@ -41,7 +41,7 @@ enum ManagerView {
 /// The current application view
 struct ProfileSettings {
     name: String,
-    mods_dir: Option<PathBuf>,
+    instance_dir: Option<PathBuf>,
     pack_source: String,
     side: DownloadSide,
 }
@@ -50,7 +50,7 @@ impl Default for ProfileSettings {
     fn default() -> Self {
         Self {
             name: Default::default(),
-            mods_dir: Default::default(),
+            instance_dir: Default::default(),
             pack_source: Default::default(),
             side: DownloadSide::Client,
         }
@@ -60,12 +60,15 @@ impl Default for ProfileSettings {
 impl TryFrom<ProfileSettings> for profiles::Profile {
     type Error = String;
     fn try_from(value: ProfileSettings) -> Result<Self, Self::Error> {
-        let mods_dir = value
-            .mods_dir
-            .ok_or(format!("A mods directory is required"))?;
+        let instance_dir = value
+            .instance_dir
+            .ok_or(format!("An instance directory is required"))?;
+        if !instance_dir.join("mods").exists() {
+            return Err(format!("Instance folder {} does not seem to contain a mods directory. Are you sure this is a valid instance directory?", instance_dir.display()));
+        }
         let pack_source = value.pack_source;
         Ok(profiles::Profile::new(
-            &mods_dir,
+            &instance_dir,
             profiles::PackSource::from_str(&pack_source)?,
             value.side,
         ))
@@ -81,13 +84,13 @@ impl Default for ManagerView {
 #[derive(Debug, Clone)]
 enum Message {
     SwitchView(ManagerView),
-    BrowseModsDir,
+    BrowseInstanceDir,
     EditProfileName(String),
     EditPackSource(String),
     SaveProfile,
     DeleteProfile(String),
     InstallProfile(String),
-    ProfileInstalled(ProfileInstallStatus)
+    ProfileInstalled(ProfileInstallStatus),
 }
 
 #[derive(Debug, Clone)]
@@ -95,7 +98,7 @@ enum ProfileInstallStatus {
     NotStarted,
     Installing,
     Success,
-    Error(String)
+    Error(String),
 }
 
 impl Default for ProfileInstallStatus {
@@ -158,8 +161,8 @@ impl Application for ManagerGUI {
                         self.profile_edit_settings.name = profile.trim().into();
                         if let Some(loaded_profile) = loaded_profile {
                             self.profile_edit_settings.name = profile.into();
-                            self.profile_edit_settings.mods_dir =
-                                Some(loaded_profile.mods_folder.clone());
+                            self.profile_edit_settings.instance_dir =
+                                Some(loaded_profile.instance_folder.clone());
                             self.profile_edit_settings.pack_source =
                                 loaded_profile.pack_source.to_string();
                             self.profile_edit_settings.side = loaded_profile.side;
@@ -172,9 +175,9 @@ impl Application for ManagerGUI {
                 self.current_view = view;
                 Command::none()
             }
-            Message::BrowseModsDir => {
-                self.profile_edit_settings.mods_dir = rfd::FileDialog::new()
-                    .set_title("Select your mods folder")
+            Message::BrowseInstanceDir => {
+                self.profile_edit_settings.instance_dir = rfd::FileDialog::new()
+                    .set_title("Select your instance folder")
                     .pick_folder();
                 Command::none()
             }
@@ -235,24 +238,21 @@ impl Application for ManagerGUI {
                             let result = profile.install().await;
                             if let Err(err) = result {
                                 ProfileInstallStatus::Error(format!("{}", err))
-                            }
-                            else {
+                            } else {
                                 ProfileInstallStatus::Success
                             }
-                        }
-                        else {
+                        } else {
                             ProfileInstallStatus::Error(format!("Profile '{}' doesn't exist", name))
                         }
                     },
-                    Message::ProfileInstalled
+                    Message::ProfileInstalled,
                 )
-            },
+            }
             Message::ProfileInstalled(result) => {
-                self.current_install_status  = result;
+                self.current_install_status = result;
 
                 Command::none()
-            },
-            
+            }
         }
     }
 
@@ -325,8 +325,11 @@ impl ManagerGUI {
                 ]
                 .spacing(5),
                 row![
-                    "Mods directory",
-                    text_input("Mods directory", &profile.mods_folder.display().to_string()),
+                    "Instance folder",
+                    text_input(
+                        "Instance folder",
+                        &profile.instance_folder.display().to_string()
+                    ),
                 ]
                 .spacing(20),
                 row!["Mods to download", text(profile.side),].spacing(5),
@@ -354,17 +357,18 @@ impl ManagerGUI {
         }
 
         match &self.current_install_status {
-            ProfileInstallStatus::NotStarted => {},
+            ProfileInstallStatus::NotStarted => {}
             ProfileInstallStatus::Installing => {
                 profile_view = profile_view.push(text("Installing..."));
-            },
+            }
             ProfileInstallStatus::Success => {
                 profile_view = profile_view.push(text("Installed"));
-            },
+            }
             ProfileInstallStatus::Error(err) => {
-                profile_view = profile_view.push(text(format!("Failed to install profile: {}", err)));
-            },
-        };        
+                profile_view =
+                    profile_view.push(text(format!("Failed to install profile: {}", err)));
+            }
+        };
 
         profile_view
             .align_items(Alignment::Center)
@@ -379,8 +383,8 @@ impl ManagerGUI {
         previous_view: ManagerView,
         can_edit_name: bool,
     ) -> Element<Message> {
-        let current_mods_directory_display = match &self.profile_edit_settings.mods_dir {
-            Some(mods_dir) => mods_dir.display().to_string(),
+        let current_instance_directory_display = match &self.profile_edit_settings.instance_dir {
+            Some(instance_dir) => instance_dir.display().to_string(),
             None => String::from(""),
         };
         let mut profile_editor = column![
@@ -405,12 +409,12 @@ impl ManagerGUI {
             ]
             .spacing(5),
             row![
-                "Mods directory",
+                "Instance directory",
                 text_input(
-                    "Browse for your MC instance's mods directory",
-                    &current_mods_directory_display
+                    "Browse for your MC instance directory (contains your mods folder)",
+                    &current_instance_directory_display
                 ),
-                button("Browse").on_press(Message::BrowseModsDir)
+                button("Browse").on_press(Message::BrowseInstanceDir)
             ]
             .spacing(5),
             row![

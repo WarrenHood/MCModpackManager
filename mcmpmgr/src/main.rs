@@ -53,7 +53,7 @@ enum Commands {
         #[arg(long)]
         providers: Vec<ModProvider>,
     },
-    /// Add a new mod to the modpack
+    /// Add a new mod or to the modpack
     Add {
         /// Name of the mod to add to the project, optionally including a version
         name: String,
@@ -134,9 +134,9 @@ enum ProfileCommands {
         /// A local file path to a modpack directory or a git repo url prefixed with 'git+'
         #[arg(long, short)]
         pack_source: PackSource,
-        /// Mods directory
+        /// Instance directory (containing a mods folder)
         #[arg(long, short)]
-        mods_directory: PathBuf,
+        instance_directory: PathBuf,
     },
     /// Install a profile
     Install {
@@ -405,10 +405,10 @@ async fn main() -> anyhow::Result<()> {
                             name,
                             side,
                             pack_source,
-                            mods_directory,
+                            instance_directory,
                         } => {
                             let mut userdata = profiles::Data::load()?;
-                            let profile = Profile::new(&mods_directory, pack_source, side);
+                            let profile = Profile::new(&instance_directory, pack_source, side);
                             userdata.add_profile(&name, profile);
                             userdata.save()?;
                             println!("Saved profile '{name}'");
@@ -442,7 +442,7 @@ async fn main() -> anyhow::Result<()> {
                                 anyhow::bail!("Profile '{name}' does not exist")
                             };
                             println!("Profile name  : {name}");
-                            println!("Mods folder   : {}", profile.mods_folder.display());
+                            println!("Instance folder   : {}", profile.instance_folder.display());
                             println!("Modpack source: {}", profile.pack_source);
                             println!("Side          : {}", profile.side);
                         }

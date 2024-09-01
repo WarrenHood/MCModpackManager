@@ -43,15 +43,15 @@ impl Display for PackSource {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Profile {
-    pub mods_folder: PathBuf,
+    pub instance_folder: PathBuf,
     pub pack_source: PackSource,
     pub side: DownloadSide,
 }
 
 impl Profile {
-    pub fn new(mods_folder: &Path, pack_source: PackSource, side: DownloadSide) -> Self {
+    pub fn new(instance_folder: &Path, pack_source: PackSource, side: DownloadSide) -> Self {
         Self {
-            mods_folder: mods_folder.into(),
+            instance_folder: instance_folder.into(),
             pack_source,
             side,
         }
@@ -70,7 +70,7 @@ impl Profile {
         };
 
         pack_lock
-            .download_mods(&self.mods_folder, self.side)
+            .download_mods(&self.instance_folder.join("mods"), self.side)
             .await?;
         Ok(())
     }
@@ -118,8 +118,7 @@ impl Data {
 
         if let Some(home_dir) = home_dir {
             Ok(home_dir)
-        }
-        else {
+        } else {
             anyhow::bail!("Unable to locate home directory")
         }
     }
