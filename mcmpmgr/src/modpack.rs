@@ -1,4 +1,7 @@
-use crate::mod_meta::{ModMeta, ModProvider};
+use crate::{
+    file_meta::{get_normalized_relative_path, FileMeta},
+    mod_meta::{ModMeta, ModProvider},
+};
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
 use std::{
@@ -38,11 +41,19 @@ impl std::str::FromStr for ModLoader {
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct ModpackMeta {
+    /// The name of the modpack
     pub pack_name: String,
+    /// The intended minecraft version on which this pack should run
     pub mc_version: String,
+    /// The default modloader for the modpack
     pub modloader: ModLoader,
+    /// Map of mod name -> mod metadata
     pub mods: BTreeMap<String, ModMeta>,
+    /// Mapping of relative paths to files to copy over from the modpack
+    pub files: Option<BTreeMap<String, FileMeta>>,
+    /// Default provider for newly added mods in the modpack
     pub default_providers: Vec<ModProvider>,
+    /// A set of forbidden mods in the modpack
     pub forbidden_mods: BTreeSet<String>,
 }
 
@@ -103,6 +114,81 @@ impl ModpackMeta {
         self
     }
 
+    /// Add local files or folders to the pack. These should be committed to version control
+    pub fn add_file(
+        &mut self,
+        file_path: &Path,
+        file_meta: &FileMeta,
+        pack_root: &Path,
+    ) -> Result<&mut Self> {
+        let relative_path = if file_path.is_relative() {
+            file_path
+        } else {
+            &pathdiff::diff_paths(file_path, pack_root).ok_or(anyhow::format_err!(
+                "Cannot get relative path of {} in {}",
+                file_path.display(),
+                pack_root.display()
+            ))?
+        };
+
+        let target_path = PathBuf::from(&file_meta.target_path);
+        if !target_path.is_relative() {
+            anyhow::bail!(
+                "Target path {} for file {} is not relative!",
+                file_meta.target_path,
+                file_path.display()
+            );
+        }
+
+        let full_path = pack_root.join(relative_path);
+
+        // Make sure this path is consistent across platforms
+        let relative_path = get_normalized_relative_path(relative_path, &pack_root)?;
+
+        if !full_path
+            .canonicalize()?
+            .starts_with(pack_root.canonicalize()?)
+        {
+            anyhow::bail!(
+                "You cannot add local files to the modpack from outside the pack source directory. {} is not contained in {}",
+                full_path.canonicalize()?.display(),
+                pack_root.canonicalize()?.display()
+            );
+        }
+
+        match &mut self.files {
+            Some(files) => {
+                files.insert(relative_path.clone(), file_meta.clone());
+            }
+            None => {
+                self.files
+                    .insert(BTreeMap::new())
+                    .insert(relative_path.clone(), file_meta.clone());
+            }
+        }
+
+        println!(
+            "Added file '{relative_path}' -> '{}' to modpack...",
+            file_meta.target_path
+        );
+
+        Ok(self)
+    }
+
+    pub fn remove_file(&mut self, file_path: &PathBuf, pack_root: &Path) -> Result<&mut Self> {
+        let relative_path = get_normalized_relative_path(&file_path, pack_root)?;
+        if let Some(files) = &mut self.files {
+            let removed = files.remove(&relative_path);
+            if let Some(removed) = removed {
+                println!(
+                    "Removed file '{relative_path}' -> '{}' from modpack...",
+                    removed.target_path
+                );
+            }
+        }
+        Ok(self)
+    }
+
     pub fn init_project(&self, directory: &Path) -> Result<()> {
         let modpack_meta_file_path = directory.join(PathBuf::from(MODPACK_FILENAME));
         if modpack_meta_file_path.exists() {
@@ -140,6 +226,7 @@ impl std::default::Default for ModpackMeta {
             mc_version: "1.20.1".into(),
             modloader: ModLoader::Forge,
             mods: Default::default(),
+            files: Default::default(),
             default_providers: vec![ModProvider::Modrinth],
             forbidden_mods: Default::default(),
         }

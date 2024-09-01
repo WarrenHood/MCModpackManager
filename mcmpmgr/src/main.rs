@@ -1,3 +1,4 @@
+mod file_meta;
 mod mod_meta;
 mod modpack;
 mod profiles;
@@ -6,6 +7,7 @@ mod resolver;
 
 use anyhow::{Error, Result};
 use clap::{Args, Parser, Subcommand};
+use file_meta::{get_normalized_relative_path, FileMeta};
 use mod_meta::{ModMeta, ModProvider};
 use modpack::ModpackMeta;
 use profiles::{PackSource, Profile};
@@ -53,7 +55,7 @@ enum Commands {
         #[arg(long)]
         providers: Vec<ModProvider>,
     },
-    /// Add a new mod or to the modpack
+    /// Add a new mod to the modpack
     Add {
         /// Name of the mod to add to the project, optionally including a version
         name: String,
@@ -74,7 +76,7 @@ enum Commands {
         modloader: Option<modpack::ModLoader>,
         /// Side override
         #[arg(long, short)]
-        side: Option<DownloadSide>
+        side: Option<DownloadSide>,
     },
     /// Remove a mod from the modpack
     Remove {
@@ -109,8 +111,44 @@ enum Commands {
         #[arg(long, short, action)]
         locked: bool,
     },
+    /// Manage local files in the modpack
+    File(FileArgs),
     /// Manage mcmpmgr profiles
     Profile(ProfileArgs),
+}
+
+#[derive(Debug, Args)]
+#[command(args_conflicts_with_subcommands = true)]
+struct FileArgs {
+    #[command(subcommand)]
+    command: Option<FileCommands>,
+}
+
+#[derive(Debug, Subcommand)]
+enum FileCommands {
+    /// List all files/folders in the pack
+    List,
+    /// Add new files/folder to the pack
+    Add {
+        /// Local path to file/folder to include in the pack (must be in the pack root)
+        local_path: PathBuf,
+        /// Target path to copy the file/folder to relative to the MC instance directory
+        #[arg(short, long)]
+        target_path: Option<PathBuf>,
+        /// Side to copy the file/folder to
+        #[arg(long, default_value_t = DownloadSide::Server)]
+        side: DownloadSide,
+    },
+    /// Show metadata about a file in the pack
+    Show {
+        /// Local path of the file/folder to show
+        local_path: String,
+    },
+    /// Remove a file/folder from the pack
+    Remove {
+        /// local path to file/folder to remove
+        local_path: PathBuf,
+    },
 }
 
 #[derive(Debug, Args)]
@@ -228,7 +266,7 @@ async fn main() -> anyhow::Result<()> {
                 locked,
                 mc_version,
                 modloader,
-                side
+                side,
             } => {
                 let mut modpack_meta = ModpackMeta::load_from_current_directory()?;
                 let old_modpack_meta = modpack_meta.clone();
@@ -251,15 +289,15 @@ async fn main() -> anyhow::Result<()> {
                         DownloadSide::Both => {
                             mod_meta.server_side = Some(true);
                             mod_meta.client_side = Some(true);
-                        },
+                        }
                         DownloadSide::Server => {
                             mod_meta.server_side = Some(true);
                             mod_meta.client_side = Some(false);
-                        },
+                        }
                         DownloadSide::Client => {
                             mod_meta.server_side = Some(false);
                             mod_meta.client_side = Some(true);
-                        },
+                        }
                     }
                 }
                 for provider in providers.into_iter() {
@@ -390,6 +428,37 @@ async fn main() -> anyhow::Result<()> {
                 let modpack_meta = ModpackMeta::load_from_current_directory()?;
                 pack_lock.init(&modpack_meta, !locked).await?;
                 pack_lock.save_current_dir_lock()?;
+            }
+            Commands::File(FileArgs { command }) => {
+                if let Some(command) = command {
+                    match command {
+                        FileCommands::List => todo!(),
+                        FileCommands::Add {
+                            local_path,
+                            target_path,
+                            side,
+                        } => {
+                            let mut modpack_meta = ModpackMeta::load_from_current_directory()?;
+                            let current_dir = &std::env::current_dir()?;
+                            let file_meta = FileMeta {
+                                target_path: get_normalized_relative_path(
+                                    &target_path.unwrap_or(local_path.clone()),
+                                    current_dir,
+                                )?,
+                                side,
+                            };
+
+                            modpack_meta.add_file(&local_path, &file_meta, current_dir)?;
+                            modpack_meta.save_current_dir_project()?;
+                        }
+                        FileCommands::Show { local_path } => todo!(),
+                        FileCommands::Remove { local_path } => {
+                            let mut modpack_meta = ModpackMeta::load_from_current_directory()?;
+                            modpack_meta.remove_file(&local_path, &std::env::current_dir()?)?;
+                            modpack_meta.save_current_dir_project()?;
+                        }
+                    }
+                }
             }
             Commands::Profile(ProfileArgs { command }) => {
                 if let Some(command) = command {
