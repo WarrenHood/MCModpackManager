@@ -1,8 +1,7 @@
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
 use std::{
-    collections::HashMap,
-    error::Error,
+    collections::BTreeMap,
     fmt::Display,
     path::{Path, PathBuf},
     str::FromStr,
@@ -80,7 +79,7 @@ impl Profile {
 /// User data and configs for the modpack manager
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Data {
-    profiles: HashMap<String, Profile>,
+    profiles: BTreeMap<String, Profile>,
 }
 
 impl Default for Data {

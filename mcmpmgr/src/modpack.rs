@@ -2,7 +2,7 @@ use crate::mod_meta::{ModMeta, ModProvider};
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
 use std::{
-    collections::{HashMap, HashSet},
+    collections::{BTreeMap, HashSet},
     path::{Path, PathBuf},
 };
 
@@ -41,7 +41,7 @@ pub struct ModpackMeta {
     pub pack_name: String,
     pub mc_version: String,
     pub modloader: ModLoader,
-    pub mods: HashMap<String, ModMeta>,
+    pub mods: BTreeMap<String, ModMeta>,
     pub default_providers: Vec<ModProvider>,
     pub forbidden_mods: HashSet<String>,
 }
@@ -56,7 +56,7 @@ impl ModpackMeta {
         }
     }
 
-    pub fn iter_mods(&self) -> std::collections::hash_map::Values<String, ModMeta> {
+    pub fn iter_mods(&self) -> std::collections::btree_map::Values<String, ModMeta> {
         self.mods.values().into_iter()
     }
 

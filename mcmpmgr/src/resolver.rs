@@ -2,8 +2,7 @@ use anyhow::Result;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha512};
 use std::{
-    collections::{HashMap, HashSet},
-    error::Error,
+    collections::{BTreeMap, HashSet},
     ffi::{OsStr, OsString},
     path::{Path, PathBuf},
 };
@@ -18,7 +17,7 @@ const MODPACK_LOCK_FILENAME: &str = "modpack.lock";
 
 #[derive(Serialize, Deserialize)]
 pub struct PinnedPackMeta {
-    mods: HashMap<String, PinnedMod>,
+    mods: BTreeMap<String, PinnedMod>,
     #[serde(skip_serializing, skip_deserializing)]
     modrinth: Modrinth,
 }
