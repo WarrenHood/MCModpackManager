@@ -1,6 +1,6 @@
 use crate::mod_meta::ModMeta;
 use serde::{Deserialize, Serialize};
-use std::{collections::HashSet, fmt::Display, path::PathBuf, str::FromStr};
+use std::{collections::BTreeSet, fmt::Display, path::PathBuf, str::FromStr};
 
 pub mod modrinth;
 pub mod raw;
@@ -58,7 +58,8 @@ pub struct PinnedMod {
     /// Version of mod
     pub version: String,
     /// Pinned dependencies of a pinned mod
-    pub deps: Option<HashSet<ModMeta>>,
+    // pub deps: Option<BTreeSet<ModMeta>>,
+    pub deps: Option<BTreeSet<ModMeta>>,
     /// Server side
     pub server_side: bool,
     /// Required on client side

@@ -4,7 +4,7 @@ use std::{borrow::BorrowMut, error::Error};
 
 use crate::modpack::ModLoader;
 
-#[derive(Debug, Serialize, Deserialize, PartialEq, Eq, Hash, Clone)]
+#[derive(Debug, Serialize, Deserialize, PartialEq, Eq, Hash, Clone, PartialOrd, Ord)]
 pub enum ModProvider {
     /// Get mods from CurseForge
     CurseForge,
@@ -36,13 +36,25 @@ pub struct ModMeta {
     pub loader: Option<ModLoader>,
     pub download_url: Option<String>,
     pub server_side: Option<bool>,
-    pub client_side: Option<bool>
+    pub client_side: Option<bool>,
 }
 
 impl PartialEq for ModMeta {
     fn eq(&self, other: &Self) -> bool {
         // Only compare mod metadata by name and version
         self.name == other.name && self.version == other.version
+    }
+}
+
+impl PartialOrd for ModMeta {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        self.name.partial_cmp(&other.name)
+    }
+}
+
+impl Ord for ModMeta {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        self.name.cmp(&other.name)
     }
 }
 

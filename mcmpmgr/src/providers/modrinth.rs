@@ -1,6 +1,6 @@
 use anyhow::{Error, Result};
 use serde::{Deserialize, Serialize};
-use std::collections::HashSet;
+use std::collections::BTreeSet;
 
 use super::PinnedMod;
 use crate::{
@@ -158,7 +158,7 @@ impl Modrinth {
             }
         };
 
-        let mut deps_meta = HashSet::new();
+        let mut deps_meta = BTreeSet::new();
         if let Some(deps) = &package.dependencies {
             for dep in deps.iter().filter(|dep| dep.dependency_type == "required") {
                 deps_meta.insert(

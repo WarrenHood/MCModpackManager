@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 use sha1::Sha1;
 use sha2::{Digest, Sha512};
 use std::{
-    collections::{BTreeMap, HashSet},
+    collections::{BTreeMap, BTreeSet},
     ffi::{OsStr, OsString},
     path::{Path, PathBuf},
 };
@@ -39,7 +39,7 @@ impl PinnedPackMeta {
         download_side: DownloadSide,
     ) -> Result<()> {
         let files = std::fs::read_dir(mods_dir)?;
-        let mut pinned_files_cache = HashSet::new();
+        let mut pinned_files_cache = BTreeSet::new();
         for file in files.into_iter() {
             let file = file?;
             if file.file_type()?.is_file() {
@@ -109,7 +109,7 @@ impl PinnedPackMeta {
         &self,
         file_name: &OsStr,
         mod_side: DownloadSide,
-        cache: &mut HashSet<OsString>,
+        cache: &mut BTreeSet<OsString>,
     ) -> bool {
         if cache.contains(file_name) {
             return true;
@@ -166,7 +166,7 @@ impl PinnedPackMeta {
             }
         }
         let mut deps =
-            HashSet::from_iter(self.pin_mod(mod_metadata, pack_metadata).await?.into_iter());
+            BTreeSet::from_iter(self.pin_mod(mod_metadata, pack_metadata).await?.into_iter());
 
         if ignore_transitive_versions {
             // Ignore transitive dep versions
@@ -181,7 +181,7 @@ impl PinnedPackMeta {
             .clone();
 
         while !deps.is_empty() {
-            let mut next_deps = HashSet::new();
+            let mut next_deps = BTreeSet::new();
             for dep in deps.iter() {
                 println!(
                     "Adding mod {}@{} (dependency of {}@{})",
@@ -213,7 +213,7 @@ impl PinnedPackMeta {
         } else {
             &vec![]
         };
-        let mut checked_providers: HashSet<ModProvider> = HashSet::new();
+        let mut checked_providers: BTreeSet<ModProvider> = BTreeSet::new();
         for mod_provider in mod_providers
             .iter()
             .chain(pack_metadata.default_providers.iter())
@@ -305,8 +305,8 @@ impl PinnedPackMeta {
         )
     }
 
-    fn get_dependent_mods(&self, mod_name: &str) -> HashSet<String> {
-        let mut dependent_mods = HashSet::new();
+    fn get_dependent_mods(&self, mod_name: &str) -> BTreeSet<String> {
+        let mut dependent_mods = BTreeSet::new();
 
         for (pinned_mod_name, pinned_mod) in self.mods.iter() {
             if let Some(deps) = &pinned_mod.deps {
@@ -356,7 +356,7 @@ impl PinnedPackMeta {
 
     /// Remove all mods from lockfile that aren't in the pack metadata or depended on by another mod
     fn prune_mods(&mut self, pack_metadata: &ModpackMeta) -> Result<()> {
-        let mods_to_remove: HashSet<String> = self
+        let mods_to_remove: BTreeSet<String> = self
             .mods
             .keys()
             .filter(|mod_name| {

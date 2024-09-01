@@ -2,7 +2,7 @@ use crate::mod_meta::{ModMeta, ModProvider};
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
 use std::{
-    collections::{BTreeMap, HashSet},
+    collections::{BTreeMap, BTreeSet},
     path::{Path, PathBuf},
 };
 
@@ -43,7 +43,7 @@ pub struct ModpackMeta {
     pub modloader: ModLoader,
     pub mods: BTreeMap<String, ModMeta>,
     pub default_providers: Vec<ModProvider>,
-    pub forbidden_mods: HashSet<String>,
+    pub forbidden_mods: BTreeSet<String>,
 }
 
 impl ModpackMeta {
