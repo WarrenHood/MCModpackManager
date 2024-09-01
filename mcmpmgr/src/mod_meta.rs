@@ -34,7 +34,9 @@ pub struct ModMeta {
     pub providers: Option<Vec<ModProvider>>,
     pub mc_version: Option<String>,
     pub loader: Option<ModLoader>,
-    download_url: Option<String>,
+    pub download_url: Option<String>,
+    pub server_side: Option<bool>,
+    pub client_side: Option<bool>
 }
 
 impl PartialEq for ModMeta {
@@ -106,6 +108,8 @@ impl Default for ModMeta {
             download_url: Default::default(),
             mc_version: None,
             loader: None,
+            server_side: None,
+            client_side: None,
         }
     }
 }

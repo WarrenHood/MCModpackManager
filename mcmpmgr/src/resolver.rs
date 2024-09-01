@@ -1,5 +1,7 @@
 use anyhow::Result;
+use reqwest::{header::CONTENT_DISPOSITION, Url};
 use serde::{Deserialize, Serialize};
+use sha1::Sha1;
 use sha2::{Digest, Sha512};
 use std::{
     collections::{BTreeMap, HashSet},
@@ -10,7 +12,7 @@ use std::{
 use crate::{
     mod_meta::{ModMeta, ModProvider},
     modpack::ModpackMeta,
-    providers::{modrinth::Modrinth, DownloadSide, PinnedMod},
+    providers::{modrinth::Modrinth, DownloadSide, FileSource, PinnedMod},
 };
 
 const MODPACK_LOCK_FILENAME: &str = "modpack.lock";
@@ -244,7 +246,54 @@ impl PinnedPackMeta {
                         );
                     }
                 }
-                crate::mod_meta::ModProvider::Raw => unimplemented!(),
+                crate::mod_meta::ModProvider::Raw => {
+                    let url = mod_metadata
+                        .download_url
+                        .clone()
+                        .ok_or(anyhow::format_err!(
+                            "A download url is required to pin {}",
+                            mod_metadata.name
+                        ))?;
+                    let file_response = reqwest::get(&url).await?;
+
+                    // TODO: Get filename from content disposition
+                    let _content_disposition = file_response.headers().get(CONTENT_DISPOSITION);
+                    let url_parsed = Url::parse(&url)?;
+                    let filename = url_parsed
+                        .path_segments()
+                        .ok_or(anyhow::format_err!(
+                            "Cannot get path segments from url {}",
+                            url
+                        ))?
+                        .last()
+                        .ok_or(anyhow::format_err!("Cannot get filename from url {}", url))?;
+
+                    let file_contents = file_response.bytes().await?;
+                    let mut sha1_hasher = Sha1::new();
+                    let mut sha512_hasher = Sha512::new();
+                    sha1_hasher.update(&file_contents);
+                    sha512_hasher.update(&file_contents);
+                    let sha1_hash = format!("{:X}", sha1_hasher.finalize()).to_ascii_lowercase();
+                    let sha512_hash =
+                        format!("{:X}", sha512_hasher.finalize()).to_ascii_lowercase();
+
+                    let pinned_mod = PinnedMod {
+                        source: vec![FileSource::Download {
+                            url: url.into(),
+                            sha1: sha1_hash,
+                            sha512: sha512_hash,
+                            filename: filename.into(),
+                        }],
+                        version: "Unknown".into(),
+                        deps: None,
+                        server_side: mod_metadata.server_side.unwrap_or(true),
+                        client_side: mod_metadata.client_side.unwrap_or(true),
+                    };
+                    self.mods
+                        .insert(mod_metadata.name.clone(), pinned_mod.clone());
+                    println!("Pinned {}@{}", mod_metadata.name, pinned_mod.version);
+                    return Ok(vec![]);
+                }
             };
         }
 
@@ -378,9 +427,7 @@ impl PinnedPackMeta {
         Ok(toml::from_str(&modpack_lock_contents)?)
     }
 
-    pub async fn load_from_current_directory(
-        ignore_transitive_versions: bool,
-    ) -> Result<Self> {
+    pub async fn load_from_current_directory(ignore_transitive_versions: bool) -> Result<Self> {
         Self::load_from_directory(&std::env::current_dir()?, ignore_transitive_versions).await
     }
 
