@@ -198,8 +198,12 @@ impl Modrinth {
             } else {
                 None
             },
-            server_side: project.server_side != "unsupported",
-            client_side: project.client_side != "unsupported",
+            server_side: mod_meta
+                .server_side
+                .unwrap_or(project.server_side != "unsupported"),
+            client_side: mod_meta
+                .client_side
+                .unwrap_or(project.client_side != "unsupported"),
         })
     }
 

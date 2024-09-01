@@ -72,6 +72,9 @@ enum Commands {
         /// Modloader override
         #[arg(long, short)]
         modloader: Option<modpack::ModLoader>,
+        /// Side override
+        #[arg(long, short)]
+        side: Option<DownloadSide>
     },
     /// Remove a mod from the modpack
     Remove {
@@ -225,6 +228,7 @@ async fn main() -> anyhow::Result<()> {
                 locked,
                 mc_version,
                 modloader,
+                side
             } => {
                 let mut modpack_meta = ModpackMeta::load_from_current_directory()?;
                 let old_modpack_meta = modpack_meta.clone();
@@ -241,6 +245,22 @@ async fn main() -> anyhow::Result<()> {
 
                 if let Some(url) = url {
                     mod_meta = mod_meta.url(&url);
+                }
+                if let Some(side) = side {
+                    match side {
+                        DownloadSide::Both => {
+                            mod_meta.server_side = Some(true);
+                            mod_meta.client_side = Some(true);
+                        },
+                        DownloadSide::Server => {
+                            mod_meta.server_side = Some(true);
+                            mod_meta.client_side = Some(false);
+                        },
+                        DownloadSide::Client => {
+                            mod_meta.server_side = Some(false);
+                            mod_meta.client_side = Some(true);
+                        },
+                    }
                 }
                 for provider in providers.into_iter() {
                     mod_meta = mod_meta.provider(provider);
