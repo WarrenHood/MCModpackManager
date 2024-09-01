@@ -1,11 +1,44 @@
 use crate::providers::DownloadSide;
 use serde::{Deserialize, Serialize};
-use std::path::{Path, PathBuf};
+use std::{fmt::Display, path::{Path, PathBuf}, str::FromStr};
 
 #[derive(Debug, Clone, Serialize, Deserialize, Hash)]
 pub struct FileMeta {
+    /// Relative path of file in the instance folder
     pub target_path: String,
+    /// Which side the files should be applied on
     pub side: DownloadSide,
+    /// When to apply the files to the instance
+    pub apply_policy: FileApplyPolicy
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Hash, PartialEq, Eq)]
+pub enum FileApplyPolicy {
+    /// Always ensure the file or folder exactly matches that defined in the pack
+    Always,
+    /// Only apply the file or folder if it doesn't already exist in the pack
+    Once
+}
+
+impl FromStr for FileApplyPolicy {
+    type Err = anyhow::Error;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s.to_ascii_lowercase().as_str() {
+            "always" => Ok(Self::Always),
+            "once" => Ok(Self::Once),
+            _ => anyhow::bail!("Invalid apply policy {}. Expected one of: always, once", s),
+        }
+    }
+}
+
+impl Display for FileApplyPolicy {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Always => write!(f, "Always"),
+            Self::Once => write!(f, "Once"),
+        }
+    }
 }
 
 impl PartialEq for FileMeta {

@@ -5,7 +5,7 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-anyhow = "1.0.86"
+anyhow = { version = "1.0.86", features = ["backtrace"] }
 clap = { version = "4.5.15", features = ["derive"] }
 git2 = "0.19.0"
 home = "0.5.9"

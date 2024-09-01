@@ -7,7 +7,7 @@ mod resolver;
 
 use anyhow::{Error, Result};
 use clap::{Args, Parser, Subcommand};
-use file_meta::{get_normalized_relative_path, FileMeta};
+use file_meta::{get_normalized_relative_path, FileApplyPolicy, FileMeta};
 use mod_meta::{ModMeta, ModProvider};
 use modpack::ModpackMeta;
 use profiles::{PackSource, Profile};
@@ -134,10 +134,13 @@ enum FileCommands {
         local_path: PathBuf,
         /// Target path to copy the file/folder to relative to the MC instance directory
         #[arg(short, long)]
-        target_path: Option<PathBuf>,
+        target_path: Option<String>,
         /// Side to copy the file/folder to
         #[arg(long, default_value_t = DownloadSide::Server)]
         side: DownloadSide,
+        /// File apply policy - whether to always apply the file or just apply it once (if the file doesn't exist)
+        #[arg(long, default_value_t = FileApplyPolicy::Always)]
+        apply_policy: FileApplyPolicy,
     },
     /// Show metadata about a file in the pack
     Show {
@@ -437,15 +440,19 @@ async fn main() -> anyhow::Result<()> {
                             local_path,
                             target_path,
                             side,
+                            apply_policy,
                         } => {
                             let mut modpack_meta = ModpackMeta::load_from_current_directory()?;
                             let current_dir = &std::env::current_dir()?;
+                            let target_path = if let Some(target_path) = target_path {
+                                target_path
+                            } else {
+                                get_normalized_relative_path(&local_path, &current_dir)?
+                            };
                             let file_meta = FileMeta {
-                                target_path: get_normalized_relative_path(
-                                    &target_path.unwrap_or(local_path.clone()),
-                                    current_dir,
-                                )?,
+                                target_path,
                                 side,
+                                apply_policy,
                             };
 
                             modpack_meta.add_file(&local_path, &file_meta, current_dir)?;
@@ -510,10 +517,10 @@ async fn main() -> anyhow::Result<()> {
                             } else {
                                 anyhow::bail!("Profile '{name}' does not exist")
                             };
-                            println!("Profile name  : {name}");
+                            println!("Profile name      : {name}");
                             println!("Instance folder   : {}", profile.instance_folder.display());
-                            println!("Modpack source: {}", profile.pack_source);
-                            println!("Side          : {}", profile.side);
+                            println!("Modpack source    : {}", profile.pack_source);
+                            println!("Side              : {}", profile.side);
                         }
                     }
                 }

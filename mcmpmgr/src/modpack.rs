@@ -1,6 +1,7 @@
 use crate::{
-    file_meta::{get_normalized_relative_path, FileMeta},
+    file_meta::{get_normalized_relative_path, FileApplyPolicy, FileMeta},
     mod_meta::{ModMeta, ModProvider},
+    providers::DownloadSide,
 };
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
@@ -130,16 +131,6 @@ impl ModpackMeta {
                 pack_root.display()
             ))?
         };
-
-        let target_path = PathBuf::from(&file_meta.target_path);
-        if !target_path.is_relative() {
-            anyhow::bail!(
-                "Target path {} for file {} is not relative!",
-                file_meta.target_path,
-                file_path.display()
-            );
-        }
-
         let full_path = pack_root.join(relative_path);
 
         // Make sure this path is consistent across platforms
@@ -187,6 +178,86 @@ impl ModpackMeta {
             }
         }
         Ok(self)
+    }
+
+    /// Installs all the manual files from the pack into the specified directory
+    ///
+    /// Files/Folders are added if they don't exist if the policy is set to `FileApplyPolicy::Once`.
+    /// Otherwise, files/folders are always overwritten.
+    ///
+    /// Files/Folders, when applied, will ensure that the exact contents of that file or folder match in the instance folder
+    /// Ie. If a folder is being applied, any files in that folder not in the modpack will be removed
+    pub fn install_files(
+        &self,
+        pack_dir: &Path,
+        instance_dir: &Path,
+        side: DownloadSide,
+    ) -> Result<()> {
+        println!(
+            "Applying modpack files: {} -> {}...",
+            pack_dir.display(),
+            instance_dir.display()
+        );
+        if let Some(files) = &self.files {
+            for (rel_path, file_meta) in files {
+                let source_path = pack_dir.join(rel_path);
+                let target_path = instance_dir.join(&file_meta.target_path);
+                if !side.contains(file_meta.side) {
+                    println!(
+                        "Skipping apply of {} -> {}. (Applies for side={}, current side={})",
+                        source_path.display(),
+                        target_path.display(),
+                        file_meta.side.to_string(),
+                        side.to_string()
+                    );
+                    continue;
+                }
+                if target_path.exists() && file_meta.apply_policy == FileApplyPolicy::Once {
+                    println!(
+                        "Skipping apply of {} -> {}. (Already applied once)",
+                        source_path.display(),
+                        target_path.display(),
+                    );
+                    continue;
+                }
+
+                // Otherwise, this file/folder needs to be applied
+                if source_path.is_dir() {
+                    // Sync a folder
+                    if target_path.exists() {
+                        println!(
+                            "Syncing and overwriting existing directory {} -> {}",
+                            source_path.display(),
+                            target_path.display(),
+                        );
+                        std::fs::remove_dir_all(&target_path)?;
+                    }
+                }
+                self.copy_files(&source_path, &target_path)?;
+            }
+        }
+        Ok(())
+    }
+
+    fn copy_files(&self, src: &Path, dst: &Path) -> Result<()> {
+        if src.is_dir() {
+            std::fs::create_dir_all(dst)?;
+            for entry in std::fs::read_dir(src)? {
+                let entry = entry?;
+                let src_path = entry.path();
+                let dst_path = dst.join(entry.file_name());
+                self.copy_files(&src_path, &dst_path)?;
+            }
+        } else {
+            let parent_dir = dst.parent();
+            if let Some(parent_dir) = parent_dir {
+                std::fs::create_dir_all(parent_dir)?;
+            }
+            println!("Syncing file {} -> {}", src.display(), dst.display());
+            std::fs::copy(src, dst)?;
+        }
+
+        Ok(())
     }
 
     pub fn init_project(&self, directory: &Path) -> Result<()> {

@@ -28,6 +28,12 @@ pub enum DownloadSide {
     Client,
 }
 
+impl DownloadSide {
+    pub fn contains(self, side: Self) -> bool {
+        self == Self::Both || side == Self::Both || self == side
+    }
+}
+
 impl FromStr for DownloadSide {
     type Err = anyhow::Error;
 

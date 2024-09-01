@@ -7,7 +7,7 @@ use std::{
     str::FromStr,
 };
 
-use crate::{providers::DownloadSide, resolver::PinnedPackMeta};
+use crate::{modpack::ModpackMeta, providers::DownloadSide, resolver::PinnedPackMeta};
 
 const CONFIG_DIR_NAME: &str = "mcmpmgr";
 const DATA_FILENAME: &str = "data.toml";
@@ -58,16 +58,20 @@ impl Profile {
     }
 
     pub async fn install(&self) -> Result<()> {
-        let (pack_lock, temp_dir) = match &self.pack_source {
+        let (pack_lock, pack_directory, _temp_dir) = match &self.pack_source {
             PackSource::Git { url } => {
                 let (pack_lock, packdir) = PinnedPackMeta::load_from_git_repo(&url, true).await?;
-                (pack_lock, Some(packdir))
+                let pack_path = packdir.path().to_path_buf();
+                (pack_lock, pack_path, Some(packdir))
             }
             PackSource::Local { path } => (
                 PinnedPackMeta::load_from_directory(&path, true).await?,
+                path.to_path_buf(),
                 None,
             ),
         };
+        let modpack_meta = ModpackMeta::load_from_directory(&pack_directory)?;
+        modpack_meta.install_files(&pack_directory, &self.instance_folder, self.side)?;
 
         pack_lock
             .download_mods(&self.instance_folder.join("mods"), self.side)
