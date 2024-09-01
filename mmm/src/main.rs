@@ -12,7 +12,20 @@ use mcmpmgr::profiles::{self, Profile};
 use mcmpmgr::providers::DownloadSide;
 
 pub fn main() -> iced::Result {
-    ManagerGUI::run(Settings::default())
+    ManagerGUI::run(Settings {
+        window: iced::window::Settings {
+            size: iced::Size {
+                width: 800.0,
+                height: 300.0,
+            },
+            min_size: Some(iced::Size {
+                width: 800.0,
+                height: 300.0,
+            }),
+            ..Default::default()
+        },
+        ..Default::default()
+    })
 }
 
 #[derive(Default)]
