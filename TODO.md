@@ -23,3 +23,4 @@ This is a rather unorganised list of TODOs just so I can somewhat keep track of 
 - [ ] Concurrent mod downloads to speed up profile installation/updates.
 - [ ] Concurrent mod metadata downloads to speed up running the `update` command.
 - [ ] Get mmm working properly on `wayland` with Nix.
+- [ ] Get cross-compilation to Windows working with the mingw toolcahin.
