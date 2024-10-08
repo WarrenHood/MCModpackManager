@@ -1,3 +1,4 @@
+mod file_merge;
 mod file_meta;
 mod mod_meta;
 mod modpack;

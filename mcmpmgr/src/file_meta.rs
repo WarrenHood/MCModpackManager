@@ -1,6 +1,6 @@
 use crate::providers::DownloadSide;
 use serde::{Deserialize, Serialize};
-use std::{fmt::Display, path::{Path, PathBuf}, str::FromStr};
+use std::{fmt::Display, path::Path, str::FromStr};
 
 #[derive(Debug, Clone, Serialize, Deserialize, Hash)]
 pub struct FileMeta {
@@ -9,7 +9,7 @@ pub struct FileMeta {
     /// Which side the files should be applied on
     pub side: DownloadSide,
     /// When to apply the files to the instance
-    pub apply_policy: FileApplyPolicy
+    pub apply_policy: FileApplyPolicy,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Hash, PartialEq, Eq)]
@@ -17,7 +17,11 @@ pub enum FileApplyPolicy {
     /// Always ensure the file or folder exactly matches that defined in the pack
     Always,
     /// Only apply the file or folder if it doesn't already exist in the pack
-    Once
+    Once,
+    /// Merge into folders and files, retaining existing values in files when a file already exists
+    MergeRetain,
+    /// Merge into folders and files, overwriting existing values in files when a file already exists
+    MergeOverwrite,
 }
 
 impl FromStr for FileApplyPolicy {
@@ -27,6 +31,8 @@ impl FromStr for FileApplyPolicy {
         match s.to_ascii_lowercase().as_str() {
             "always" => Ok(Self::Always),
             "once" => Ok(Self::Once),
+            "mergeretain" => Ok(Self::MergeRetain),
+            "mergeoverwrite" => Ok(Self::MergeOverwrite),
             _ => anyhow::bail!("Invalid apply policy {}. Expected one of: always, once", s),
         }
     }
@@ -37,6 +43,8 @@ impl Display for FileApplyPolicy {
         match self {
             Self::Always => write!(f, "Always"),
             Self::Once => write!(f, "Once"),
+            Self::MergeRetain => write!(f, "MergeRetain"),
+            Self::MergeOverwrite => write!(f, "MergeOverwrite"),
         }
     }
 }
