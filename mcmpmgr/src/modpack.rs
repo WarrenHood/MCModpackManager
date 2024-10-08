@@ -1,13 +1,15 @@
 use crate::{
+    file_merge,
     file_meta::{get_normalized_relative_path, FileApplyPolicy, FileMeta},
     mod_meta::{ModMeta, ModProvider},
     providers::DownloadSide,
 };
-use anyhow::Result;
+use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
 use std::{
     collections::{BTreeMap, BTreeSet},
     path::{Path, PathBuf},
+    str::FromStr,
 };
 
 const MODPACK_FILENAME: &str = "modpack.toml";
@@ -187,6 +189,8 @@ impl ModpackMeta {
     ///
     /// Files/Folders, when applied, will ensure that the exact contents of that file or folder match in the instance folder
     /// Ie. If a folder is being applied, any files in that folder not in the modpack will be removed
+    ///
+    /// Both merge policies will recursively copy files/folders from the src into the destination, while performing merges instead of file copies.
     pub fn install_files(
         &self,
         pack_dir: &Path,
@@ -225,36 +229,83 @@ impl ModpackMeta {
                 if source_path.is_dir() {
                     // Sync a folder
                     if target_path.exists() {
-                        println!(
-                            "Syncing and overwriting existing directory {} -> {}",
-                            source_path.display(),
-                            target_path.display(),
-                        );
-                        std::fs::remove_dir_all(&target_path)?;
+                        if file_meta.apply_policy == FileApplyPolicy::Always
+                            || file_meta.apply_policy == FileApplyPolicy::Once
+                        {
+                            println!(
+                                "Syncing and overwriting existing directory {} -> {}",
+                                source_path.display(),
+                                target_path.display(),
+                            );
+                            std::fs::remove_dir_all(&target_path)?;
+                        } else {
+                            println!(
+                                "Merging existing directory {} -> {} (policy={})",
+                                source_path.display(),
+                                target_path.display(),
+                                file_meta.apply_policy
+                            );
+                        }
                     }
                 }
-                self.copy_files(&source_path, &target_path)?;
+                self.copy_files(&source_path, &target_path, file_meta.apply_policy.clone())?;
             }
         }
         Ok(())
     }
 
-    fn copy_files(&self, src: &Path, dst: &Path) -> Result<()> {
+    fn copy_files(&self, src: &Path, dst: &Path, apply_policy: FileApplyPolicy) -> Result<()> {
         if src.is_dir() {
             std::fs::create_dir_all(dst)?;
             for entry in std::fs::read_dir(src)? {
                 let entry = entry?;
                 let src_path = entry.path();
                 let dst_path = dst.join(entry.file_name());
-                self.copy_files(&src_path, &dst_path)?;
+                self.copy_files(&src_path, &dst_path, apply_policy.clone())?;
             }
         } else {
             let parent_dir = dst.parent();
             if let Some(parent_dir) = parent_dir {
                 std::fs::create_dir_all(parent_dir)?;
             }
-            println!("Syncing file {} -> {}", src.display(), dst.display());
-            std::fs::copy(src, dst)?;
+            if apply_policy == FileApplyPolicy::Always || apply_policy == FileApplyPolicy::Once {
+                println!("Syncing file {} -> {}", src.display(), dst.display());
+                std::fs::copy(src, dst)?;
+            } else {
+                // Merging files
+                let src_val = std::fs::read_to_string(src)?;
+                let dst_val = if dst.exists() {
+                    Some(std::fs::read_to_string(dst)?)
+                } else {
+                    None
+                };
+                if let Some(dst_val) = dst_val {
+                    let file_ext = if let Some(ext) = dst.extension() {
+                        ext
+                    } else {
+                        anyhow::bail!("Cannot merge file '{dst:#?}' with unknown file type")
+                    }
+                    .to_string_lossy();
+
+                    let file_type = file_merge::FileType::from_str(&file_ext)
+                        .with_context(|| format!("Couldn't merge file {src:?} -> {dst:?}"))?;
+
+                    let merged_contents = file_merge::merge_files(
+                        &src_val,
+                        &dst_val,
+                        apply_policy == FileApplyPolicy::MergeOverwrite,
+                        file_type,
+                    )
+                    .with_context(|| format!("Failed to merge file {src:?} -> {dst:?}"))?;
+
+                    std::fs::write(dst, merged_contents).with_context(|| {
+                        format!("Failed to write merged contents of {src:?} -> {dst:?}")
+                    })?;
+                } else {
+                    println!("Syncing file {} -> {}", src.display(), dst.display());
+                    std::fs::copy(src, dst)?;
+                }
+            }
         }
 
         Ok(())
