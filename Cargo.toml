@@ -3,7 +3,8 @@ resolver = "2"
 members = ["mcmpmgr", "mmm"]
 
 [workspace.package]
-version = "0.1.0"
+authors = ["Warren Hood <nullbyte001@gmail.com>"]
+version = "0.2.0"
 edition = "2021"
 
 [workspace.metadata.crane]
