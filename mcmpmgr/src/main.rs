@@ -484,7 +484,7 @@ async fn main() -> anyhow::Result<()> {
                             instance_directory,
                         } => {
                             let mut userdata = profiles::Data::load()?;
-                            let profile = Profile::new(&instance_directory, pack_source, side);
+                            let profile = Profile::new(&instance_directory, pack_source, side)?;
                             userdata.add_profile(&name, profile);
                             userdata.save()?;
                             println!("Saved profile '{name}'");

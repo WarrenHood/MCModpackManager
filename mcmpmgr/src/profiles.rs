@@ -26,8 +26,11 @@ impl FromStr for PackSource {
             let url = s.trim_start_matches("git+").to_string();
             Ok(PackSource::Git { url })
         } else {
-            let path = PathBuf::from(s);
-            Ok(PackSource::Local { path })
+            let path = PathBuf::from(s).canonicalize();
+            match path {
+                Ok(path) => Ok(PackSource::Local { path }),
+                Err(e) => Err(e.to_string())
+            }
         }
     }
 }
@@ -49,12 +52,16 @@ pub struct Profile {
 }
 
 impl Profile {
-    pub fn new(instance_folder: &Path, pack_source: PackSource, side: DownloadSide) -> Self {
-        Self {
-            instance_folder: instance_folder.into(),
+    pub fn new(
+        instance_folder: &Path,
+        pack_source: PackSource,
+        side: DownloadSide,
+    ) -> Result<Self> {
+        Ok(Self {
+            instance_folder: instance_folder.canonicalize()?,
             pack_source,
             side,
-        }
+        })
     }
 
     pub async fn install(&self) -> Result<()> {

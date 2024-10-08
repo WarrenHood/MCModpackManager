@@ -84,7 +84,8 @@ impl TryFrom<ProfileSettings> for profiles::Profile {
             &instance_dir,
             profiles::PackSource::from_str(&pack_source)?,
             value.side,
-        ))
+        )
+        .map_err(|e| e.to_string())?)
     }
 }
 
