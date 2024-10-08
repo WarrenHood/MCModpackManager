@@ -1,4 +1,4 @@
-use std::{any::Any, default, str::FromStr};
+use std::str::FromStr;
 
 #[derive(Debug, Clone, Copy)]
 pub enum FileType {
@@ -81,50 +81,164 @@ fn test_merge_json() {
 
     assert!(
         merged_overwrite["b"]["y"]["test"] == "thing",
-        "//b/y/test wasn't overwritten with \"thing\". src={}, dst={}",
+        "//b/y/test wasn't overwritten with \"thing\". src={:#?}, dst={:#?}",
         src,
         merged_overwrite
     );
     assert!(
         merged_overwrite["a"] == 3,
-        "//a was not set to 3. src={}, dst={}",
+        "//a was not set to 3. src={:#?}, dst={:#?}",
         src,
         merged_overwrite
     );
     assert!(
         merged_overwrite["b"]["x"].is_object(),
-        "//b/x is not an object. src={}, dst={}",
+        "//b/x is not an object. src={:#?}, dst={:#?}",
         src,
         merged_overwrite
     );
     assert!(
         merged_overwrite["c"]["foo"] == "bar",
-        "//c/foo != bar. src={}, dst={}",
+        "//c/foo != bar. src={:#?}, dst={:#?}",
         src,
         merged_overwrite
     );
 
     assert!(
         merged_retained["b"]["y"]["test"] == "something",
-        "//b/y/test was overwritten. src={}, dst={}",
+        "//b/y/test was overwritten. src={:#?}, dst={:#?}",
         src,
         merged_retained
     );
     assert!(
         merged_retained["a"] == 3,
-        "//a was not set to 3. src={}, dst={}",
+        "//a was not set to 3. src={:#?}, dst={:#?}",
         src,
         merged_retained
     );
     assert!(
         merged_retained["b"]["x"].is_object(),
-        "//b/x is not an object. src={}, dst={}",
+        "//b/x is not an object. src={:#?}, dst={:#?}",
         src,
         merged_retained
     );
     assert!(
         merged_retained["c"]["foo"] == "bar",
-        "//c/foo != bar. src={}, dst={}",
+        "//c/foo != bar. src={:#?}, dst={:#?}",
+        src,
+        merged_retained
+    );
+}
+
+fn merge_yaml(
+    src: &serde_yaml::Value,
+    dst: &mut serde_yaml::Value,
+    overwrite_existing: bool,
+) -> anyhow::Result<()> {
+    if src.is_mapping() && dst.is_mapping() {
+        let src = src.as_mapping().unwrap();
+        let dst = dst.as_mapping_mut().unwrap();
+
+        for (k, v) in src.iter() {
+            if v.is_mapping() {
+                let dst_v = dst.entry(k.clone()).or_insert(serde_yaml::from_str("{}")?);
+                merge_yaml(v, dst_v, overwrite_existing)?;
+            } else {
+                if overwrite_existing || !dst.contains_key(k) {
+                    dst.insert(k.clone(), v.clone());
+                }
+            }
+        }
+    } else {
+        // TODO: Keep track of path for better errors
+        anyhow::bail!("Cannot merge non-objects: {src:#?} and {dst:#?}")
+    }
+    Ok(())
+}
+
+#[test]
+fn test_merge_yaml() {
+    let src = serde_yaml::from_str(
+        r#"{
+        "a": 3,
+        "b": {
+            "x": {
+
+            },
+            "y": {
+                "test": "thing"
+            }
+        },
+        "c": {}
+    }"#,
+    )
+    .unwrap();
+
+    let dst: serde_yaml::Value = serde_yaml::from_str(
+        r#"{
+        "b": {
+            "y": {
+                "test": "something"
+            }
+        },
+        "c": {
+            "foo": "bar"
+        }
+    }"#,
+    )
+    .unwrap();
+
+    let mut merged_overwrite = dst.clone();
+    let mut merged_retained = dst.clone();
+    merge_yaml(&src, &mut merged_overwrite, true).unwrap();
+    merge_yaml(&src, &mut merged_retained, false).unwrap();
+
+    assert!(
+        merged_overwrite["b"]["y"]["test"] == "thing",
+        "//b/y/test wasn't overwritten with \"thing\". src={:#?}, dst={:#?}",
+        src,
+        merged_overwrite
+    );
+    assert!(
+        merged_overwrite["a"] == 3,
+        "//a was not set to 3. src={:#?}, dst={:#?}",
+        src,
+        merged_overwrite
+    );
+    assert!(
+        merged_overwrite["b"]["x"].is_mapping(),
+        "//b/x is not a mapping. src={:#?}, dst={:#?}",
+        src,
+        merged_overwrite
+    );
+    assert!(
+        merged_overwrite["c"]["foo"] == "bar",
+        "//c/foo != bar. src={:#?}, dst={:#?}",
+        src,
+        merged_overwrite
+    );
+
+    assert!(
+        merged_retained["b"]["y"]["test"] == "something",
+        "//b/y/test was overwritten. src={:#?}, dst={:#?}",
+        src,
+        merged_retained
+    );
+    assert!(
+        merged_retained["a"] == 3,
+        "//a was not set to 3. src={:#?}, dst={:#?}",
+        src,
+        merged_retained
+    );
+    assert!(
+        merged_retained["b"]["x"].is_mapping(),
+        "//b/x is not a mapping. src={:#?}, dst={:#?}",
+        src,
+        merged_retained
+    );
+    assert!(
+        merged_retained["c"]["foo"] == "bar",
+        "//c/foo != bar. src={:#?}, dst={:#?}",
         src,
         merged_retained
     );
@@ -144,7 +258,12 @@ fn merge_files(
             merge_json(&src_val, &mut dst_val, overwrite_existing)?;
             dst_val.to_string()
         }
-        FileType::Yaml => todo!(),
+        FileType::Yaml => {
+            let src_val = serde_yaml::Value::from(src);
+            let mut dst_val = serde_yaml::Value::from(dst);
+            merge_yaml(&src_val, &mut dst_val, overwrite_existing)?;
+            serde_yaml::to_string(&dst_val)?
+        }
         FileType::Toml => todo!(),
     })
 }
