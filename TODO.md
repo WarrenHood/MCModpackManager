@@ -7,7 +7,7 @@ This is a rather unorganised list of TODOs just so I can somewhat keep track of 
 ### Important
 
 - [X] Canonicalize relative path args with `profile` commands
-- [ ] Add a "merge" apply policy that can merge contents of certain file types.
+- [X] Add a "merge" apply policy that can merge contents of certain file types.
     Eg. toml, json, and anything else that is reasonable (key-value type things... with nesting)
     This should also be able to merge folders, while recursively applying "merge" logic to individual files.
     
@@ -16,6 +16,7 @@ This is a rather unorganised list of TODOs just so I can somewhat keep track of 
     merge (with conflict overrides on a file content level) should result in an install dir with A and B, where a.json and b.json are in A, and a.json is the result of merging a.json into the installed a.json (overwriting any existing key's values with the modpack's values), and the original files in folder B untouched (x.json and y.json)
 
     merge (retaining original/modified values) merge should result in an install dir with A and B, where a.json and b.json are in A, and a.json is the result of merging a.json into the installed a.json (retaining the existing values from the file in the install dir), and the original files in folder B untouched (x.json and y.json)
+- [ ] Test the merge apply policies when I am not half asleep.
 
 ### Nice to haves
 
