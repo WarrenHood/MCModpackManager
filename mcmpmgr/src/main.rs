@@ -139,8 +139,8 @@ enum FileCommands {
         /// Side to copy the file/folder to
         #[arg(long, default_value_t = DownloadSide::Server)]
         side: DownloadSide,
-        /// File apply policy - whether to always apply the file or just apply it once (if the file doesn't exist)
-        #[arg(long, default_value_t = FileApplyPolicy::Always)]
+        /// File apply policy - whether to always apply the file or just apply it once (if the file doesn't exist), or merge (mergeretain or mergeoverwrite)
+        #[arg(long, default_value_t = FileApplyPolicy::MergeOverwrite)]
         apply_policy: FileApplyPolicy,
     },
     /// Show metadata about a file in the pack
