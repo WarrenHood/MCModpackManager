@@ -6,7 +6,7 @@ mod profiles;
 mod providers;
 mod resolver;
 
-use anyhow::{Error, Result};
+use anyhow::{Context, Error, Result};
 use clap::{Args, Parser, Subcommand};
 use file_meta::{get_normalized_relative_path, FileApplyPolicy, FileMeta};
 use mod_meta::{ModMeta, ModProvider};
@@ -507,6 +507,9 @@ async fn main() -> anyhow::Result<()> {
                         ProfileCommands::Remove { name } => {
                             let mut userdata = profiles::Data::load()?;
                             userdata.remove_profile(&name);
+                            userdata.save().with_context(|| {
+                                format!("Failed to save userdata after removing profile {name}")
+                            })?;
                             println!("Removed profile '{name}'");
                         }
                         ProfileCommands::Show { name } => {

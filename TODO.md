@@ -18,6 +18,7 @@ This is a rather unorganised list of TODOs just so I can somewhat keep track of 
     merge (retaining original/modified values) merge should result in an install dir with A and B, where a.json and b.json are in A, and a.json is the result of merging a.json into the installed a.json (retaining the existing values from the file in the install dir), and the original files in folder B untouched (x.json and y.json)
 - [ ] Test the merge apply policies when I am not half asleep
 - [ ] Show package version somewhere in `mmm`
+- [X] Save userdata after removing profiles with the remove command
 
 ### Nice to haves
 
