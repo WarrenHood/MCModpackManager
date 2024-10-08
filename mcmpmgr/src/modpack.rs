@@ -6,6 +6,7 @@ use crate::{
 };
 use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
+use similar::{ChangeTag, TextDiff};
 use std::{
     collections::{BTreeMap, BTreeSet},
     path::{Path, PathBuf},
@@ -298,9 +299,20 @@ impl ModpackMeta {
                     )
                     .with_context(|| format!("Failed to merge file {src:?} -> {dst:?}"))?;
 
-                    std::fs::write(dst, merged_contents).with_context(|| {
+                    std::fs::write(dst, &merged_contents).with_context(|| {
                         format!("Failed to write merged contents of {src:?} -> {dst:?}")
                     })?;
+
+                    println!("Successfully merged {src:?} -> {dst:?}. See diff below:");
+                    let diff = TextDiff::from_lines(&dst_val, &merged_contents);
+                    for change in diff.iter_all_changes() {
+                        let sign = match change.tag() {
+                            ChangeTag::Delete => "-",
+                            ChangeTag::Insert => "+",
+                            ChangeTag::Equal => " ",
+                        };
+                        print!("{}{}", sign, change);
+                    }
                 } else {
                     println!("Syncing file {} -> {}", src.display(), dst.display());
                     std::fs::copy(src, dst)?;
