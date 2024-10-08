@@ -6,7 +6,7 @@ This is a rather unorganised list of TODOs just so I can somewhat keep track of 
 
 ### Important
 
-- [ ] Canonicalize relative path args with `profile` commands
+- [X] Canonicalize relative path args with `profile` commands
 - [ ] Add a "merge" apply policy that can merge contents of certain file types.
     Eg. toml, json, and anything else that is reasonable (key-value type things... with nesting)
     This should also be able to merge folders, while recursively applying "merge" logic to individual files.
