@@ -23,6 +23,7 @@ This is a rather unorganised list of TODOs just so I can somewhat keep track of 
 ### Nice to haves
 
 - [ ] Preserve formatting as much as possible when merging files
+- [ ] Allow for overriding file types for file merge apply policies rather than relying on the file extension
 - [ ] Support resource and shaderpack installs rather than just mods.
 - [ ] Concurrent mod downloads to speed up profile installation/updates.
 - [ ] Concurrent mod metadata downloads to speed up running the `update` command.
