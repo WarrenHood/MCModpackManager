@@ -15,7 +15,9 @@
     flake-utils.url = "github:numtide/flake-utils";
 
     advisory-db = {
-      url = "github:rustsec/advisory-db"; flake = false; };
+      url = "github:rustsec/advisory-db";
+      flake = false;
+    };
   };
 
   outputs = { self, nixpkgs, crane, fenix, flake-utils, advisory-db, ... }:
@@ -86,14 +88,29 @@
           cargoExtraArgs = "-p mcmpmgr";
           src = craneLib.cleanCargoSource ./.;
         });
-        mmm = craneLib.buildPackage (individualCrateArgs // {
+        mmm = craneLib.buildPackage (individualCrateArgs // rec {
           pname = "mmm";
           cargoExtraArgs = "-p mmm";
           src = craneLib.cleanCargoSource ./.;
+          buildInputs = commonArgs.buildInputs ++ (with pkgs; [
+            expat
+            fontconfig
+            freetype
+            freetype.dev
+            libGL
+            pkg-config
+            xorg.libX11
+            xorg.libXcursor
+            xorg.libXi
+            xorg.libXrandr
+            wayland
+            libxkbcommon
+          ]);
+          LD_LIBRARY_PATH = builtins.foldl' (a: b: "${a}:${b}/lib") "${pkgs.vulkan-loader}/lib" buildInputs;
         });
       in
       {
-        checks = {};
+        checks = { };
 
         packages = {
           inherit mcmpmgr;
@@ -116,7 +133,7 @@
         };
 
 
-        devShells.default = craneLib.devShell {
+        devShells.default = craneLib.devShell rec {
           # Inherit inputs from checks.
           checks = self.checks.${system};
 
@@ -129,6 +146,23 @@
             pkgs.nil
             pkgs.rust-analyzer
           ];
+
+          buildInputs = with pkgs; [
+            expat
+            fontconfig
+            freetype
+            freetype.dev
+            libGL
+            pkg-config
+            xorg.libX11
+            xorg.libXcursor
+            xorg.libXi
+            xorg.libXrandr
+            wayland
+            libxkbcommon
+          ];
+
+          LD_LIBRARY_PATH = builtins.foldl' (a: b: "${a}:${b}/lib") "${pkgs.vulkan-loader}/lib" buildInputs;
         };
       });
 }

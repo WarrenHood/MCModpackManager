@@ -11,6 +11,8 @@ use iced::{Alignment, Element, Length, Sandbox, Settings, Theme};
 use mcmpmgr::profiles::{self, Profile};
 use mcmpmgr::providers::DownloadSide;
 
+const VERSION: &str = env!("CARGO_PKG_VERSION");
+
 pub fn main() -> iced::Result {
     ManagerGUI::run(Settings {
         window: iced::window::Settings {
@@ -145,7 +147,7 @@ impl Application for ManagerGUI {
     }
 
     fn title(&self) -> String {
-        String::from("Minecraft Modpack Manager")
+        format!("Minecraft Modpack Manager v{VERSION}")
     }
 
     fn update(&mut self, message: Message) -> Command<Message> {
