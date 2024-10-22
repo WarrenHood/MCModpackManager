@@ -6,6 +6,7 @@ This is a rather unorganised list of TODOs just so I can somewhat keep track of 
 
 ### Important
 
+- Add NeoForge support.
 - [ ] Concurrent mod downloads to speed up profile installation/updates.
 
 ### Nice to haves
