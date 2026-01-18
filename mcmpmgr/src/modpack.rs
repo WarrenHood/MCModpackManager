@@ -19,6 +19,7 @@ const MODPACK_FILENAME: &str = "modpack.toml";
 pub enum ModLoader {
     Forge,
     Fabric,
+    NeoForge,
 }
 
 impl ToString for ModLoader {
@@ -26,6 +27,7 @@ impl ToString for ModLoader {
         match self {
             ModLoader::Forge => "Forge",
             ModLoader::Fabric => "Fabric",
+            ModLoader::NeoForge => "NeoForge",
         }
         .into()
     }
@@ -38,7 +40,8 @@ impl std::str::FromStr for ModLoader {
         match s {
             "Fabric" => Ok(Self::Fabric),
             "Forge" => Ok(Self::Forge),
-            _ => anyhow::bail!("Invalid mod launcher: {}", s),
+            "NeoForge" => Ok(Self::NeoForge),
+            _ => anyhow::bail!("Invalid modloader: {}", s),
         }
     }
 }
