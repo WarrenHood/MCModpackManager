@@ -252,7 +252,9 @@ impl ModpackMeta {
                         }
                     }
                 }
-                self.copy_files(&source_path, &target_path, file_meta.apply_policy.clone())?;
+                self.copy_files(&source_path, &target_path, file_meta.apply_policy.clone()).with_context(
+                    || format!("Syncing {} -> {}", source_path.display(), target_path.display())
+                )?;
             }
         }
         Ok(())

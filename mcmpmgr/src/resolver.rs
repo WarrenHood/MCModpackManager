@@ -38,6 +38,7 @@ impl PinnedPackMeta {
         mods_dir: &PathBuf,
         download_side: DownloadSide,
     ) -> Result<()> {
+        let _ = std::fs::create_dir_all(mods_dir);
         let files = std::fs::read_dir(mods_dir)?;
         let mut pinned_files_cache = BTreeSet::new();
         for file in files.into_iter() {
